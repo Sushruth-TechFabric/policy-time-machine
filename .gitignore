@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node / frontend
+node_modules/
+app/frontend/dist/
+
+# Generated data — regenerate from seed, never commit
+generator/output/
+*.parquet
+
+# Databricks bundle state
+.databricks/
+
+# Local scratch
+.DS_Store

@@ -1,0 +1,41 @@
+%% Diagram 3 — The investigation loop. Audience: UX spec (06) — a technical architecture spec does not exist yet.
+%% Embedded in docs/specs/06-ux-specification.md.
+sequenceDiagram
+    actor User
+    participant UI as React UI
+    participant API as FastAPI backend
+    participant Genie as Genie Conversation API
+    participant WH as SQL Warehouse
+
+    User->>UI: Types question
+    UI->>API: Send question
+    API->>API: Regex-detect policy id (\bP-\d{5}\b)
+    Note over API: Input-side detection — the app does<br/>no other NL interpretation
+
+    par Deterministic timeline (never blocks on Genie)
+        opt Exactly one policy id detected
+            API->>WH: Deterministic timeline query
+            WH-->>API: Timeline rows
+            API-->>UI: Timeline panel renders
+        end
+    and Genie conversation
+        API->>Genie: Message into the active conversation
+        Note over API,Genie: One conversation per investigation —<br/>multi-turn context
+        Genie->>Genie: Generate SQL
+        Genie->>WH: Execute generated SQL
+        WH-->>Genie: Result rows
+        Genie-->>API: Rows + generated SQL + description
+        API-->>UI: Result payload
+    end
+
+    alt Genie result received
+        UI->>UI: Render generic table + auto-chart +<br/>evidence panel (SQL, row count, description)
+        UI->>User: Curated follow-up chips keyed to on-screen context
+        Note over UI: Chips are self-contained<br/>questions, CI-executed
+        User->>UI: Clicks a chip
+        UI->>API: Chip question — the loop repeats
+    else Genie error or empty result
+        UI->>User: State the outcome and auto-offer "New investigation" reset
+    end
+
+    Note over User,UI: Breadcrumb click = cached view restore,<br/>no re-query, thread not rewound

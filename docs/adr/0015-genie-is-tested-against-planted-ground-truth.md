@@ -1,0 +1,15 @@
+# Genie is tested against planted ground truth, not against its SQL
+
+Each of the core questions has a query contract that asserts on the **result** — which policies came back, which values appear, what ordering holds — never on the SQL Genie generated. Ground truth comes from the scenario catalogue: we know which policies were constructed to match each question and which controls were constructed not to. Each contract runs three times; anything short of three passes is red.
+
+Asserting on generated SQL fails whenever Genie legitimately rephrases, so the suite goes red on non-defects and eventually gets muted — and an invisible mute is worse than no suite. Asserting only on shape and non-emptiness lets a confidently wrong cohort pass, which is the precise failure this architecture exists to prevent. Not testing Genie at all means a late instruction edit breaks a question nobody re-runs until it is on stage. Result assertions are robust to rephrasing for the same reason pipeline expectations beat reviewing transformation code by eye.
+
+## Consequences
+
+- **Four contract types, not one.** *Cohort* contracts assert must-include and must-exclude policy sets plus negative value assertions. *Ranking* contracts assert the returned category ordering matches the declared effect-size ordering, never the magnitudes. *Comparison* contracts assert exactly two groups with label, rate and n — the control-group rule enforced as a test rather than only as an instruction. *Table-routed* contracts assert the result matches a pre-computed table exactly, and are the cheapest because the ground truth is a table we wrote.
+- **Cohorts compare on `DISTINCT policy_id`,** so a change-grain result with repeated policy ids still passes or fails correctly.
+- **Contracts and the scenario catalogue share one source.** Each scenario declares the policy ids it plants and the questions they must appear in or stay out of; contracts reference that declaration. The coupling then fails loudly on a scenario edit rather than drifting silently — the same rule as the chip bank.
+- **Three of three passes, or red. Never retry until green.** Retrying converts nondeterministic wrongness into a hidden mute. The two red modes are reported differently: zero of three is a deterministic break in the semantic layer or instructions; one or two of three is instruction ambiguity, Genie choosing between readings, which a live demo cannot tolerate. A flaky contract is as severe as a broken one.
+- **Generated SQL and Genie's description are logged on every failing run** as diagnostics. Logged, never asserted.
+- **One contract is multi-turn.** The rehearsed pronoun follow-up runs as two turns in a single conversation, asserting the second turn's cohort. Multi-turn is the strongest Genie capability being claimed, so it is tested rather than merely rehearsed.
+- **The suite is not always-on.** It runs on any change to Genie instructions, Unity Catalog comments or curated schemas; after every dataset regeneration; and as a pre-submission gate. Chip non-emptiness remains the cheap always-on layer.

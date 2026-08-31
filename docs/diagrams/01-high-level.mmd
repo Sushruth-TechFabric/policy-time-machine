@@ -1,0 +1,18 @@
+%% Diagram 1 — High-level architecture. Audience: judges; first slide of the writeup.
+%% Embedded in docs/specs/09-product-charter.md. Vocabulary per CONTEXT.md and 03-genie-knowledge.md §7.
+flowchart LR
+    subgraph bundle["Databricks Asset Bundle — one deployable unit"]
+        wf["Workflows<br/>scheduled regeneration<br/>(staleness budget)"]
+        gen["Synthetic Data Generator<br/>seeded, anchor-parameterised"]
+        dlt["Lakeflow Declarative Pipeline<br/>with expectations —<br/>temporal invariants enforced at write time"]
+        jobs["Similarity + Pattern jobs"]
+        subgraph gspace["Genie space — 6 curated tables"]
+            tables["Six curated Delta tables<br/>in Unity Catalog<br/>(SCD2 history upstream, never exposed)"]
+        end
+        genie["Databricks Genie<br/>interprets intent; writes flat<br/>filters + group-bys only"]
+        app["Policy Time Machine app<br/>Databricks Apps: React + FastAPI"]
+    end
+    user(["User"])
+
+    wf --> gen --> dlt --> tables --> genie --> app --> user
+    jobs -->|"policy_similarity<br/>policy_pattern_match"| tables

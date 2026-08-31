@@ -1,0 +1,78 @@
+%% Diagram 2 — The six-table Genie space. Audience: semantic layer spec + Genie instruction spec.
+%% Embedded in docs/specs/02-semantic-layer.md; linked from 03-genie-knowledge.md.
+%% Attributes are abbreviated — the full column list lives in 02-semantic-layer.md.
+%% policy_timeline_event is for reading one policy's story, never for aggregation.
+erDiagram
+    policy_change_event {
+        string change_event_id PK
+        string policy_id FK
+        string endorsement_id
+        date change_date
+        string change_category
+        string change_direction "increase | decrease | switch"
+        decimal change_pct "NULL, never a sentinel"
+        string next_claim_id FK "first claim by REPORT date"
+        int days_to_next_claim_loss "signed; negative = in loss-to-report gap"
+        int days_to_next_claim_report "always >= 0"
+        string change_timing "before_loss | after_loss_before_report"
+        int material_changes_prior_30d_60d_90d "3 cols, abbreviated"
+        int nearest_category_change_offset_days "5 cols, signed, abbreviated"
+    }
+    claim_event {
+        string claim_id PK
+        string policy_id FK
+        string coverage_line
+        date loss_date
+        date report_date
+        decimal settled_amount
+        string severity_band "high-severity = severe | catastrophic"
+        decimal limit_utilization_pct "never clamped above 100"
+        boolean at_or_near_limit
+        int material_changes_prior_30d_60d_90d "3 cols, anchored on loss_date"
+        int material_changes_in_loss_report_gap
+    }
+    policy_profile {
+        string policy_id PK
+        string policy_status "current attrs abbreviated"
+        int material_change_count
+        int category_change_counts "5 cols, one per material category"
+        int claim_count
+        string max_severity_band
+        date last_material_change_date
+        date last_claim_date
+        int noteworthy_pattern_count
+    }
+    policy_timeline_event {
+        string timeline_event_id PK
+        string policy_id FK
+        date event_date
+        string event_type
+        string endorsement_id
+        string display_label
+        decimal amount
+        string source_id
+    }
+    policy_pattern_match {
+        string policy_id PK, FK
+        string pattern_code PK "composite key with policy_id"
+        string pattern_name
+        date matched_on_date
+        string evidence_change_event_id
+        string evidence_claim_id
+        string evidence_summary
+    }
+    policy_similarity {
+        string policy_id PK, FK
+        string similar_policy_id FK "directional, top-K = 20"
+        int rank "dense 1..20"
+        decimal similarity_score
+        string top_reasons
+    }
+
+    policy_profile ||--o{ policy_change_event : "policy_id"
+    policy_profile ||--o{ claim_event : "policy_id"
+    policy_profile ||--o{ policy_timeline_event : "policy_id — read one story, never aggregate"
+    policy_profile ||--o{ policy_pattern_match : "policy_id"
+    policy_profile ||--o{ policy_similarity : "policy_id"
+    policy_change_event }o--o| claim_event : "next_claim_id — many changes may share one claim (designed, not a bug)"
+    policy_similarity }o--|| policy_profile : "similar_policy_id (directional, top-K = 20)"

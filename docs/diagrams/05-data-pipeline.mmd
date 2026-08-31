@@ -1,0 +1,22 @@
+%% Diagram 5 — Data pipeline and lineage. Audience: data model + synthetic data spec.
+%% Embedded in docs/specs/01-data-model-and-synthetic-data.md.
+flowchart LR
+    sched["Workflows schedule<br/>(regeneration)"]
+    seed["seed + anchor_date"]
+    gen["Generator<br/>IDs from seed only · dates from anchor+offset ·<br/>deterministic scenarios + control populations ·<br/>declared effect sizes"]
+    raw["raw SCD2 policy_history<br/>+ raw claims<br/>(outside the Genie space)"]
+    dlt["DLT with expectations —<br/>no sentinels · linkage columns NULL together ·<br/>severity bands partition · days_to_next_claim_report >= 0 ·<br/>similarity excludes self"]
+    subgraph gspace["Genie space — 6 curated tables"]
+        pce["policy_change_event"]
+        ce["claim_event"]
+        pp["policy_profile"]
+        pte["policy_timeline_event"]
+        ppm["policy_pattern_match"]
+        ps["policy_similarity"]
+    end
+    val["post-generation validation job —<br/>measured effect sizes within tolerance of declared;<br/>category ranking matches declaration"]
+    ready(["Genie space ready"])
+
+    seed --> gen
+    sched -.->|"scheduled regeneration"| gen
+    gen --> raw --> dlt --> gspace --> val --> ready

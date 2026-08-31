@@ -1,0 +1,16 @@
+# Claim linkage is anchored on report date
+
+A Policy Change's Linked Claim is the first claim on that policy whose **report date** is at or after the change. `days_to_next_claim_report` is therefore always non-negative, while `days_to_next_claim_loss` is **signed**: positive when the change preceded the loss, negative when it fell inside the Loss-to-Report Gap. A `change_timing` categorical (`before_loss` | `after_loss_before_report`) is carried alongside. Amends ADR-0002, which originally anchored linkage on loss date.
+
+Loss-date anchoring cannot express a change made after the loss but before the insurer was told of it — the change would attach forward to whatever claim came next, and the most interesting sequence in the dataset would be invisible in the model built to show it. Dual independent linkage (separate loss-anchored and report-anchored claim column families) would express it, but gives every aggregation a plausible-wrong-answer path, reintroducing at column level the failure mode ADR-0002 exists to prevent.
+
+## Consequences
+
+- **The bare threshold filter is now wrong, and this is the product's single most important Genie instruction.** Because the loss delta is signed, `days_to_next_claim_loss <= 30` silently admits every after-loss change. The canonical form is `change_timing = 'before_loss' AND days_to_next_claim_loss <= 30`, and it must appear in the Genie instruction set with example SQL. This is the demo question; a bare threshold anywhere in the instructions is a defect.
+- **`change_timing` is deliberately redundant with the sign of the loss delta.** Denormalized on purpose so Genie filters a categorical rather than reasoning about sign conventions. Recorded here so it is not later "cleaned up."
+- **The two timing values fully partition linked changes.** Report-date anchoring guarantees a change can never fall after its Linked Claim's report date, so there is no third bucket and no NULL timing on a linked row.
+- **Same-day ties are defined, not disambiguated by fake timestamps.** A change dated the same day as the loss is `before_loss` with a loss delta of 0. A change dated the same day as the report is linked with a report delta of 0.
+- **NULL propagates together.** With no subsequent claim, `next_claim_id`, both deltas, and `change_timing` are all NULL. `change_timing` must never default to `before_loss` on an unlinked row, or that filter stops meaning "linked and before the loss."
+- **`claim_event` gains `material_changes_in_loss_report_gap`,** so gap questions are answerable at claim grain rather than only from the change table. All claim-side prior-window columns (`material_changes_prior_30d/60d/90d`) are anchored on **loss date**, matching product language.
+- **Report lag becomes load-bearing in the generator.** Every claim needs a realistic, non-zero, non-uniform loss-to-report distribution. Gap-window changes are seeded deterministically, and the control population includes innocuous ones — a routine address change during the gap on a small claim — so the pattern does not read as inherently damning.
+- **"Next claim" now means "next by report date,"** which reads as counterintuitive the first time. Documented prominently in the semantic layer spec and Genie instructions.

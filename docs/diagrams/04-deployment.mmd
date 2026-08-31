@@ -1,0 +1,28 @@
+%% Diagram 4 — Deployment / system architecture. Audience: technical architecture spec (does not exist yet)
+%% + reproducibility section of the writeup. Embedded in docs/specs/04-implementation-plan.md §5 (P8).
+flowchart TB
+    subgraph ws["Databricks Workspace — deployed via Asset Bundle"]
+        subgraph apps["Databricks Apps (~2 vCPU / 6 GB)"]
+            react["React static build"]
+            fastapi["FastAPI"]
+            appsnote["binds DATABRICKS_APP_PORT · platform OAuth ·<br/>authenticated users only — no public access"]
+        end
+        genie["Genie space"]
+        wh["SQL Warehouse"]
+        dlt["DLT pipeline"]
+        wfjob["Workflows job —<br/>scheduled regeneration"]
+        generator["Synthetic Data Generator"]
+        uc["Unity Catalog — six curated tables<br/>(table/column comments =<br/>authored semantic layer content)"]
+    end
+    judge(["Judge / User"])
+    bundle["Asset Bundle"]
+
+    react <-->|"served by"| fastapi
+    fastapi -->|"Genie Conversation API"| genie
+    fastapi -->|"deterministic timeline +<br/>similarity detail"| wh
+    wfjob --> generator --> dlt --> uc
+    genie --> uc
+    judge -->|"Apps URL (authenticated)"| apps
+    judge -.-> bundle -.->|"reproduce in own workspace"| ws
+
+    style appsnote stroke-dasharray: 4 4
