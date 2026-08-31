@@ -1,0 +1,42 @@
+Query Contracts Run — Policy Time Machine
+Timestamp: 20260831T220546Z
+Anchor date: 2026-08-31  Demo policy: P-10155
+
+QC-01  [cohort              ] 3/3  (green)
+QC-02  [cohort              ] 3/3  (green)
+QC-03  [cohort              ] 3/3  (green)
+QC-04  [cohort              ] 1/3  (instruction-ambiguity)
+         run 1: Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-11127', 'P-12684', 'P-14402']...
+         run 3: Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-11127', 'P-12684', 'P-14402']...
+QC-05  [ranking             ] 0/3  (deterministic-break)
+         run 1: Returned category order ['coverage', 'deductible', 'address', 'vehicle', 'status'] does not match declared ordering ['coverage', 'deductible', 'vehicle', 'status', 'address'] (full declared order: ['coverage', 'deductible', 'vehicle', 'status', 'address']).
+         run 2: Returned category order ['coverage', 'deductible', 'address', 'vehicle', 'status'] does not match declared ordering ['coverage', 'deductible', 'vehicle', 'status', 'address'] (full declared order: ['coverage', 'deductible', 'vehicle', 'status', 'address']).
+         run 3: Returned category order ['coverage', 'deductible', 'address', 'vehicle', 'status'] does not match declared ordering ['coverage', 'deductible', 'vehicle', 'status', 'address'] (full declared order: ['coverage', 'deductible', 'vehicle', 'status', 'address']).
+QC-06  [ranking             ] 0/3  (deterministic-break)
+         run 1: Returned category order ['coverage', 'address', 'deductible', 'vehicle', 'status'] does not match declared ordering ['coverage', 'deductible', 'vehicle', 'status', 'address'] (full declared order: ['coverage', 'deductible', 'vehicle', 'status', 'address']).
+         run 2: Returned category order ['coverage', 'address', 'deductible', 'vehicle', 'status'] does not match declared ordering ['coverage', 'deductible', 'vehicle', 'status', 'address'] (full declared order: ['coverage', 'deductible', 'vehicle', 'status', 'address']).
+         run 3: Returned category order ['coverage', 'address', 'deductible', 'vehicle', 'status'] does not match declared ordering ['coverage', 'deductible', 'vehicle', 'status', 'address'] (full declared order: ['coverage', 'deductible', 'vehicle', 'status', 'address']).
+QC-07  [cohort              ] 0/3  (deterministic-break)
+         run 1: Cohort wrongly includes C1 control policies: ['P-10491', 'P-10507', 'P-11127', 'P-12684', 'P-14402']...
+         run 2: Cohort wrongly includes C1 control policies: ['P-10491', 'P-10507', 'P-11127', 'P-12684', 'P-14402']...
+         run 3: Cohort wrongly includes C1 control policies: ['P-10491', 'P-10507', 'P-11127', 'P-12684', 'P-14402']...
+QC-08  [cohort              ] 3/3  (green)
+QC-09  [table-routed        ] 0/3  (deterministic-break)
+         run 1: Top-10 mismatch. Expected ['C-281080', 'C-450953', 'C-294135', 'C-126862', 'C-165745', 'C-295076', 'C-289598', 'C-510925', 'C-317489', 'C-335188'], got ['C-281080'].
+         run 2: Top-10 mismatch. Expected ['C-281080', 'C-450953', 'C-294135', 'C-126862', 'C-165745', 'C-295076', 'C-289598', 'C-510925', 'C-317489', 'C-335188'], got ['C-281080'].
+         run 3: Top-10 mismatch. Expected ['C-281080', 'C-450953', 'C-294135', 'C-126862', 'C-165745', 'C-295076', 'C-289598', 'C-510925', 'C-317489', 'C-335188'], got ['C-281080', 'C-450953', 'C-165745', 'C-289598', 'C-294135', 'C-126862', 'C-295076', 'C-510925', 'C-317489', 'C-335188'].
+QC-10  [comparison          ] 0/3  (deterministic-break)
+         run 1: No rate column found among ['group_label', 'n'].
+         run 2: No rate column found among ['group_label', 'n'].
+         run 3: No rate column found among ['group_label', 'n'].
+QC-11  [table-routed        ] 3/3  (green)
+QC-12  [cohort              ] 2/3  (instruction-ambiguity)
+         run 1: Genie's SQL executed but returned zero rows.
+QC-13  [ranking+comparison  ] 0/3  (deterministic-break)
+         run 1: Returned category order ['coverage', 'deductible', 'address', 'vehicle', 'status'] does not match declared ordering ['coverage', 'deductible', 'vehicle', 'status', 'address'] (full declared order: ['coverage', 'deductible', 'vehicle', 'status', 'address']).
+         run 2: Returned category order ['coverage', 'deductible', 'address', 'vehicle', 'status'] does not match declared ordering ['coverage', 'deductible', 'vehicle', 'status', 'address'] (full declared order: ['coverage', 'deductible', 'vehicle', 'status', 'address']).
+         run 3: Returned category order ['coverage', 'deductible', 'address', 'vehicle', 'status'] does not match declared ordering ['coverage', 'deductible', 'vehicle', 'status', 'address'] (full declared order: ['coverage', 'deductible', 'vehicle', 'status', 'address']).
+QC-14  [table-routed        ] 3/3  (green)
+QC-15  [cohort-multiturn    ] 3/3  (green)
+
+OVERALL: RED — see failures above
