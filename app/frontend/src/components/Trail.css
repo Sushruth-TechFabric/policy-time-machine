@@ -1,0 +1,37 @@
+.trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-3) var(--space-2);
+  font-size: 13px;
+}
+
+.trail-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.trail-sep {
+  color: var(--ink-300);
+}
+
+.trail-node {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  border-radius: var(--radius);
+  color: var(--ink-600);
+  font-weight: var(--w-regular);
+}
+
+.trail-node:hover {
+  color: var(--interactive);
+}
+
+.trail-node.active {
+  color: var(--interactive);
+  font-weight: var(--w-semibold);
+  background: var(--interactive-bg);
+}

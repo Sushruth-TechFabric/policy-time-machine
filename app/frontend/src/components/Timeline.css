@@ -1,0 +1,257 @@
+.timeline-panel {
+  padding: var(--space-2) var(--space-3) var(--space-4);
+}
+
+.timeline-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--line);
+}
+
+.timeline-title {
+  font-size: 11px;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.08em;
+  color: var(--ink-300);
+  text-transform: uppercase;
+}
+
+.timeline-policy-id {
+  font-weight: var(--w-semibold);
+  color: var(--ink-900);
+}
+
+.timeline-loading {
+  color: var(--ink-300);
+  padding: var(--space-2) 0;
+}
+
+.timeline-not-found {
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+  font-weight: var(--w-semibold);
+  color: var(--ink-900);
+}
+
+.timeline-not-found-sub {
+  margin-top: var(--space-1);
+  font-weight: var(--w-regular);
+  color: var(--ink-600);
+  font-size: 12px;
+}
+
+/* ---- The spine ---- */
+
+.tl-spine {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.tl-row {
+  position: relative;
+  display: flex;
+  gap: var(--space-2);
+  padding-left: 2px;
+}
+
+.tl-row:not(:last-child) {
+  padding-bottom: var(--space-2);
+}
+
+/* The vertical rule, drawn once per row and stitched together so it reads
+   as one continuous spine regardless of card height. */
+.tl-row::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 4px;
+  bottom: -12px;
+  width: 1px;
+  background: var(--line-strong);
+}
+
+.tl-row:last-child::before {
+  display: none;
+}
+
+.tl-marker {
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  margin-top: 3px;
+  background: var(--panel);
+  border: 1.5px solid var(--ink-600);
+  transform: rotate(45deg);
+  z-index: 1;
+}
+
+.tl-marker--info {
+  border-color: var(--line-strong);
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  margin-left: 2px;
+}
+
+.tl-marker--claim {
+  background: var(--claim);
+  border-color: var(--claim);
+  width: 13px;
+  height: 13px;
+  margin-top: 2px;
+  margin-left: -1px;
+}
+
+.tl-card {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+  box-shadow: var(--shadow-1);
+}
+
+.tl-card--info {
+  border: none;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.tl-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-1);
+}
+
+.tl-date {
+  font-weight: var(--w-semibold);
+  color: var(--ink-600);
+  font-size: 12px;
+  cursor: default;
+}
+
+.tl-info-label {
+  color: var(--ink-300);
+  font-size: 12px;
+}
+
+.tl-endorsement-tag {
+  font-size: 11px;
+  color: var(--interactive);
+  background: var(--interactive-bg);
+  border-radius: var(--radius);
+  padding: 1px 6px;
+}
+
+.tl-pattern-marker {
+  color: var(--ink-600);
+  font-size: 8px;
+  cursor: help;
+}
+
+.delta {
+  padding: 6px 0;
+  border-top: 1px dashed var(--line);
+}
+
+.delta:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.delta-label {
+  color: var(--ink-900);
+  font-weight: var(--w-regular);
+}
+
+.delta-line {
+  color: var(--ink-300);
+}
+
+.delta-values {
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-600);
+}
+
+.delta-arrow {
+  color: var(--ink-300);
+}
+
+/* ---- Claim cards: the screen's one strong accent ---- */
+
+.tl-card--claim {
+  border-color: var(--claim);
+  background: var(--claim-bg);
+}
+
+.tl-claim-tag {
+  font-size: 11px;
+  font-weight: var(--w-semibold);
+  color: var(--claim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tl-claim-amount {
+  font-size: 18px;
+  font-weight: var(--w-semibold);
+  color: var(--claim);
+}
+
+.tl-severity-badge {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: var(--w-semibold);
+  padding: 1px 6px;
+  border-radius: var(--radius);
+  border: 1px solid var(--claim);
+  color: var(--claim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tl-claim-note {
+  margin-top: var(--space-1);
+  color: var(--ink-600);
+  font-size: 12px;
+}
+
+/* ---- Find similar affordance ---- */
+
+.find-similar-btn {
+  margin-top: var(--space-3);
+  border: 1px solid var(--interactive);
+  background: none;
+  color: var(--interactive);
+  border-radius: var(--radius);
+  padding: 6px var(--space-2);
+  font-weight: var(--w-semibold);
+  font-size: 13px;
+}
+
+.find-similar-btn:hover:not(:disabled) {
+  background: var(--interactive-bg);
+}
+
+.find-similar-btn:disabled {
+  opacity: 0.5;
+}

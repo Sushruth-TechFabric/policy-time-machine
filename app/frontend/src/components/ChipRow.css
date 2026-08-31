@@ -1,0 +1,26 @@
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.chip {
+  border: 1px solid var(--interactive);
+  background: var(--interactive-bg);
+  color: var(--interactive);
+  border-radius: var(--radius);
+  padding: 6px var(--space-2);
+  font-size: 12px;
+  font-weight: var(--w-semibold);
+  text-align: left;
+}
+
+.chip:hover:not(:disabled) {
+  background: var(--interactive);
+  color: var(--panel);
+}
+
+.chip:disabled {
+  opacity: 0.5;
+}

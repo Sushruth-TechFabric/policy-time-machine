@@ -1,10 +1,50 @@
 .app {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   min-height: 100vh;
-  gap: 8px;
-  text-align: center;
-  font-family: system-ui, sans-serif;
+  background: var(--paper);
+}
+
+.app-boot-error {
+  margin: 0 var(--space-3);
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--claim);
+  background: var(--claim-bg);
+  color: var(--claim);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  border-top: 1px solid var(--line);
+}
+
+.app-body.split .timeline-region {
+  width: 40%;
+  min-width: 380px;
+  border-right: 1px solid var(--line);
+}
+
+.app-body.split .result-region {
+  width: 60%;
+  flex: 1;
+}
+
+.app-body.full .timeline-region {
+  display: none;
+}
+
+.app-body.full .result-region {
+  width: 100%;
+  flex: 1;
+}
+
+.timeline-region,
+.result-region {
+  min-height: 0;
+  overflow-y: auto;
 }
