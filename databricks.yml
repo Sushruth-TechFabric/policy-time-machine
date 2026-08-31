@@ -1,0 +1,37 @@
+bundle:
+  name: policy_time_machine
+
+# Task zero: deploy-envelope smoke test only. Keep node_modules and
+# frontend source noise out of the upload — Databricks Apps enforces
+# a 10 MB per-file limit and only the built static bundle is needed
+# at runtime (ADR-0012).
+sync:
+  # Vite's scaffolded app/frontend/.gitignore excludes "dist" — bundle
+  # sync honours .gitignore even in a non-git directory, so the build
+  # output must be force-included or it silently never uploads.
+  include:
+    - app/frontend/dist/**
+  exclude:
+    - app/frontend/node_modules/**
+    - app/frontend/src/**
+    - app/frontend/public/**
+    - app/frontend/*.md
+    - app/frontend/.gitignore
+    - app/frontend/index.html
+    - app/frontend/vite.config.js
+    - app/frontend/.oxlintrc.json
+    - app/frontend/package*.json
+
+resources:
+  apps:
+    policy_time_machine_app:
+      name: policy-time-machine
+      description: "Policy Time Machine — deploy-envelope smoke test (task zero)"
+      source_code_path: ./app
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-1edff070-fbb9.cloud.databricks.com
