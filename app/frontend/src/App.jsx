@@ -38,15 +38,33 @@ function App() {
     [],
   );
 
+  // Auto-naming from the opening question; never overwrites a name the
+  // user typed themselves.
   const setLabel = useCallback((id, label) => {
-    setTabs((t) => (t.some((tab) => tab.id === id && tab.label !== label)
-      ? t.map((tab) => (tab.id === id ? { ...tab, label } : tab))
+    setTabs((t) => (t.some((tab) => tab.id === id && !tab.custom && tab.label !== label)
+      ? t.map((tab) => (tab.id === id && !tab.custom ? { ...tab, label } : tab))
       : t));
+  }, []);
+
+  const renameTab = useCallback((id, label) => {
+    const trimmed = label.trim();
+    setTabs((t) => t.map((tab) => (tab.id === id
+      ? trimmed
+        ? { ...tab, label: trimmed, custom: true }
+        : { ...tab, custom: false }
+      : tab)));
   }, []);
 
   return (
     <div className="app">
-      <AppHeader tabs={tabs} activeId={activeId} onSelect={setActiveId} onClose={closeTab} onNew={addTab} />
+      <AppHeader
+        tabs={tabs}
+        activeId={activeId}
+        onSelect={setActiveId}
+        onClose={closeTab}
+        onNew={addTab}
+        onRename={renameTab}
+      />
       {tabs.map((tab) => (
         <div key={tab.id} className="tab-panel" hidden={tab.id !== activeId}>
           <InvestigationWorkspace

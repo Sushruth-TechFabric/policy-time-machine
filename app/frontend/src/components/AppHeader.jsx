@@ -3,7 +3,7 @@ import './AppHeader.css';
 
 /** The brand line and the investigation tab strip — rendered once, above
  *  whichever workspace is active. */
-export default function AppHeader({ tabs, activeId, onSelect, onClose, onNew }) {
+export default function AppHeader({ tabs, activeId, onSelect, onClose, onNew, onRename }) {
   return (
     <div className="app-header">
       <div className="brand-row">
@@ -16,7 +16,7 @@ export default function AppHeader({ tabs, activeId, onSelect, onClose, onNew }) 
           <span className="brand-sub">Genie-powered policy history investigation</span>
         </div>
       </div>
-      <TabBar tabs={tabs} activeId={activeId} onSelect={onSelect} onClose={onClose} onNew={onNew} />
+      <TabBar tabs={tabs} activeId={activeId} onSelect={onSelect} onClose={onClose} onNew={onNew} onRename={onRename} />
     </div>
   );
 }

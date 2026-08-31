@@ -84,6 +84,22 @@ describe('App smoke test (mock mode)', () => {
     expect(document.querySelector('.result-row-count')).toBeVisible();
   });
 
+  it('double-clicking a tab renames it, and the typed name survives the auto-name', async () => {
+    render(<App />);
+
+    fireEvent.doubleClick(screen.getByRole('button', { name: /Investigation 1/ }));
+    const input = screen.getByLabelText('Rename investigation');
+    fireEvent.change(input, { target: { value: 'Fraud sweep Q3' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(screen.getByRole('button', { name: /Fraud sweep Q3/ })).toBeInTheDocument();
+
+    // Asking a question would normally auto-name the tab — a typed name wins.
+    await ask('Show policies where coverage increased within 30 days before a claim.');
+    await waitFor(() => expect(document.querySelector('.result-row-count')).not.toBeNull());
+    expect(screen.getByRole('button', { name: /Fraud sweep Q3/ })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Coverage up before claims/ })).not.toBeInTheDocument();
+  });
+
   it('the evidence drawer is collapsed by default and expands to show the generated SQL', async () => {
     render(<App />);
     await ask('Show policies where coverage increased within 30 days before a claim.');

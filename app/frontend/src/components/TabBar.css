@@ -50,6 +50,23 @@
   color: var(--ink-900);
 }
 
+.tab-rename-input {
+  border: 1px solid var(--agent);
+  background: var(--panel);
+  border-radius: var(--radius);
+  margin: 4px 8px 5px;
+  padding: 3px 8px;
+  font-size: 12.5px;
+  font-weight: var(--w-medium);
+  color: var(--ink-900);
+  width: 160px;
+}
+
+.tab-rename-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--agent-soft);
+}
+
 .tab-close {
   border: none;
   background: none;
