@@ -117,12 +117,23 @@ def _interpret_message(client: WorkspaceClient, message: Any) -> GenieResult:
     description = getattr(query, "description", None)
 
     try:
-        result = client.genie.get_message_attachment_query_result(
-            getattr(message, "space_id", None) or GENIE_SPACE_ID,
-            getattr(message, "conversation_id", None),
-            getattr(message, "id", None) or getattr(message, "message_id", None),
-            getattr(query_attachment, "attachment_id", None),
-        )
+        space_id = getattr(message, "space_id", None) or GENIE_SPACE_ID
+        conversation_id = getattr(message, "conversation_id", None)
+        message_id = getattr(message, "id", None) or getattr(message, "message_id", None)
+        # databricks-sdk 0.40.0 predates the per-attachment result endpoint;
+        # fall back to the message-level fetch it does have.
+        fetch = getattr(client.genie, "get_message_attachment_query_result", None)
+        if fetch is not None:
+            result = fetch(
+                space_id,
+                conversation_id,
+                message_id,
+                getattr(query_attachment, "attachment_id", None),
+            )
+        else:
+            result = client.genie.get_message_query_result(
+                space_id, conversation_id, message_id
+            )
     except Exception as exc:  # noqa: BLE001 - result fetch failing is still a Genie error
         return GenieResult(
             status="error",
@@ -141,6 +152,22 @@ def _interpret_message(client: WorkspaceClient, message: Any) -> GenieResult:
             columns = [{"name": c.name} for c in schema.columns]
         stmt_result = getattr(statement_response, "result", None)
         rows = (getattr(stmt_result, "data_array", None) if stmt_result else None) or []
+
+    if not rows and generated_sql:
+        # The message-level result fetch (older SDK endpoint) can come back
+        # with an EXTERNAL_LINKS disposition and no inline data_array. The
+        # generated SQL is authoritative either way — re-run it on the
+        # warehouse so the rows on screen are exactly the rows of the SQL
+        # shown in the evidence panel.
+        try:
+            from .warehouse import run_query
+
+            fetched = run_query(client, generated_sql)
+            if fetched and isinstance(fetched[0], dict):
+                columns = [{"name": name} for name in fetched[0].keys()]
+                rows = [list(r.values()) for r in fetched]
+        except Exception:  # noqa: BLE001 - genuinely-empty stays "empty"
+            pass
 
     if not rows:
         return GenieResult(
