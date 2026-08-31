@@ -1,0 +1,114 @@
+[20260831T233452Z] Loading ground truth from warehouse SQL...
+[20260831T233506Z] Ground truth loaded. anchor_date=2026-08-31 demo_policy_id=P-10155
+
+[20260831T233506Z] === QC-01 (cohort) ===
+[20260831T233506Z]   run 1/3... PASS
+[20260831T233528Z]   run 2/3... PASS
+[20260831T233545Z]   run 3/3... PASS
+[20260831T233602Z] QC-01: 3/3 (green)
+
+[20260831T233602Z] === QC-02 (cohort) ===
+[20260831T233602Z]   run 1/3... PASS
+[20260831T233619Z]   run 2/3... PASS
+[20260831T233642Z]   run 3/3... PASS
+[20260831T233704Z] QC-02: 3/3 (green)
+
+[20260831T233704Z] === QC-03 (cohort) ===
+[20260831T233704Z]   run 1/3... PASS
+[20260831T233720Z]   run 2/3... PASS
+[20260831T233737Z]   run 3/3... PASS
+[20260831T233758Z] QC-03: 3/3 (green)
+
+[20260831T233758Z] === QC-04 (cohort) ===
+[20260831T233758Z]   run 1/3... PASS
+[20260831T233822Z]   run 2/3... PASS
+[20260831T233843Z]   run 3/3... PASS
+[20260831T233906Z] QC-04: 3/3 (green)
+
+[20260831T233906Z] === QC-05 (ranking) ===
+[20260831T233906Z]   run 1/3... PASS
+[20260831T233922Z]   run 2/3... PASS
+[20260831T233938Z]   run 3/3... PASS
+[20260831T234000Z] QC-05: 3/3 (green)
+
+[20260831T234000Z] === QC-06 (ranking) ===
+[20260831T234000Z]   run 1/3... PASS
+[20260831T234022Z]   run 2/3... PASS
+[20260831T234044Z]   run 3/3... PASS
+[20260831T234107Z] QC-06: 3/3 (green)
+
+[20260831T234107Z] === QC-07 (cohort) ===
+[20260831T234107Z]   run 1/3... PASS
+[20260831T234134Z]   run 2/3... PASS
+[20260831T234158Z]   run 3/3... PASS
+[20260831T234219Z] QC-07: 3/3 (green)
+
+[20260831T234219Z] === QC-08 (cohort) ===
+[20260831T234219Z]   run 1/3... PASS
+[20260831T234236Z]   run 2/3... PASS
+[20260831T234252Z]   run 3/3... PASS
+[20260831T234314Z] QC-08: 3/3 (green)
+
+[20260831T234314Z] === QC-09 (table-routed) ===
+[20260831T234314Z]   run 1/3... PASS
+[20260831T234336Z]   run 2/3... PASS
+[20260831T234358Z]   run 3/3... PASS
+[20260831T234420Z] QC-09: 3/3 (green)
+
+[20260831T234420Z] === QC-10 (comparison) ===
+[20260831T234420Z]   run 1/3... PASS
+[20260831T234441Z]   run 2/3... PASS
+[20260831T234503Z]   run 3/3... PASS
+[20260831T234525Z] QC-10: 3/3 (green)
+
+[20260831T234525Z] === QC-11 (table-routed) ===
+[20260831T234525Z]   run 1/3... PASS
+[20260831T234546Z]   run 2/3... PASS
+[20260831T234607Z]   run 3/3... PASS
+[20260831T234630Z] QC-11: 3/3 (green)
+
+[20260831T234630Z] === QC-12 (cohort) ===
+[20260831T234630Z]   run 1/3... PASS
+[20260831T234652Z]   run 2/3... PASS
+[20260831T234715Z]   run 3/3... PASS
+[20260831T234731Z] QC-12: 3/3 (green)
+
+[20260831T234731Z] === QC-13 (ranking+comparison) ===
+[20260831T234731Z]   run 1/3... PASS
+[20260831T234800Z]   run 2/3... PASS
+[20260831T234821Z]   run 3/3... PASS
+[20260831T234838Z] QC-13: 3/3 (green)
+
+[20260831T234838Z] === QC-14 (table-routed) ===
+[20260831T234838Z]   run 1/3... PASS
+[20260831T234854Z]   run 2/3... PASS
+[20260831T234911Z]   run 3/3... PASS
+[20260831T234928Z] QC-14: 3/3 (green)
+
+[20260831T234928Z] === QC-15 (cohort-multiturn) ===
+[20260831T234928Z]   run 1/3... PASS
+[20260831T235017Z]   run 2/3... PASS
+[20260831T235103Z]   run 3/3... PASS
+[20260831T235154Z] QC-15: 3/3 (green)
+
+Query Contracts Run — Policy Time Machine
+Timestamp: 20260831T235154Z
+Anchor date: 2026-08-31  Demo policy: P-10155
+
+QC-01  [cohort              ] 3/3  (green)
+QC-02  [cohort              ] 3/3  (green)
+QC-03  [cohort              ] 3/3  (green)
+QC-04  [cohort              ] 3/3  (green)
+QC-05  [ranking             ] 3/3  (green)
+QC-06  [ranking             ] 3/3  (green)
+QC-07  [cohort              ] 3/3  (green)
+QC-08  [cohort              ] 3/3  (green)
+QC-09  [table-routed        ] 3/3  (green)
+QC-10  [comparison          ] 3/3  (green)
+QC-11  [table-routed        ] 3/3  (green)
+QC-12  [cohort              ] 3/3  (green)
+QC-13  [ranking+comparison  ] 3/3  (green)
+QC-14  [table-routed        ] 3/3  (green)
+QC-15  [cohort-multiturn    ] 3/3  (green)
+
+OVERALL: PASS (3/3 on all fifteen)
