@@ -442,14 +442,20 @@ def _identifier(name: str) -> str:
 def render_statements(
     catalog: str = DEFAULT_CATALOG, schema: str = DEFAULT_SCHEMA
 ) -> Iterator[str]:
-    """Yield one ``COMMENT ON`` / ``ALTER TABLE`` statement per comment."""
+    """Yield one ``COMMENT ON`` statement per comment.
+
+    ``COMMENT ON COLUMN`` rather than ``ALTER TABLE ... ALTER COLUMN``:
+    the curated datasets materialise as Unity Catalog materialized views,
+    where ALTER TABLE fails with EXPECT_TABLE_NOT_VIEW. COMMENT ON COLUMN
+    works uniformly for both tables and views.
+    """
     for table in SCHEMAS:
         qualified = f"{_identifier(catalog)}.{_identifier(schema)}.{_identifier(table)}"
         yield f"COMMENT ON TABLE {qualified} IS {_literal(COMMENTS[table][None])};"
         for column, _kind in SCHEMAS[table]:
             yield (
-                f"ALTER TABLE {qualified} ALTER COLUMN {_identifier(column)} "
-                f"COMMENT {_literal(COMMENTS[table][column])};"
+                f"COMMENT ON COLUMN {qualified}.{_identifier(column)} "
+                f"IS {_literal(COMMENTS[table][column])};"
             )
 
 

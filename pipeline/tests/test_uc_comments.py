@@ -112,7 +112,7 @@ def test_rendered_statements_are_terminated_and_qualified():
     for statement in UC.render_statements("workspace", "policy_time_machine"):
         assert statement.endswith(";")
         assert "`workspace`.`policy_time_machine`." in statement
-        assert statement.startswith(("COMMENT ON TABLE", "ALTER TABLE"))
+        assert statement.startswith(("COMMENT ON TABLE", "COMMENT ON COLUMN"))
 
 
 def test_catalog_and_schema_are_parameterised():
@@ -135,7 +135,7 @@ def test_apostrophes_are_escaped_for_sql():
 
 def test_reserved_words_are_backtick_quoted():
     statements = [s for s in UC.render_statements() if "policy_similarity" in s]
-    assert any("ALTER COLUMN `rank`" in s for s in statements)
+    assert any(".`rank` IS " in s for s in statements)
 
 
 def test_script_carries_a_generated_from_header():

@@ -29,6 +29,26 @@ resources:
       description: "Policy Time Machine — deploy-envelope smoke test (task zero)"
       source_code_path: ./app
 
+  pipelines:
+    policy_time_machine_pipeline:
+      name: policy_time_machine_pipeline
+      catalog: workspace
+      target: policy_time_machine
+      serverless: true
+      channel: PREVIEW
+      configuration:
+        ptm.catalog: workspace
+        ptm.schema: policy_time_machine
+        ptm.anchor_date: "2026-08-31"
+        ptm.k: "20"
+      libraries:
+        - file:
+            path: pipeline/dlt_pipeline.py
+        - file:
+            path: pipeline/transformations.py
+        - file:
+            path: pipeline/expectations.py
+
 targets:
   dev:
     mode: development
