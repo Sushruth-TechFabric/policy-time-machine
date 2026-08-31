@@ -1,0 +1,8 @@
+# Local test dependencies for pipeline/tests.
+#
+# transformations.py, expectations.py and uc_comments.py import no PySpark and
+# no dlt, so the whole suite runs on a laptop with just these two. dlt_pipeline.py
+# is the only module needing a Databricks runtime, and it contains no rules of
+# its own — it reads, calls the shared builders, and attaches the expectations.
+pandas>=2.0
+pytest>=8.0
