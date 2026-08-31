@@ -44,6 +44,33 @@ class Change:
     direction: str | None = None
 
 
+def _proportional_split(total: int, capacity: np.ndarray) -> np.ndarray:
+    """Split ``total`` across buckets in proportion to capacity, exactly.
+
+    Largest remainder, then a spill pass for any bucket asked for more than it
+    holds. The total is always preserved: the caller relies on it, because the
+    per-state totals are what the calibration solved for.
+    """
+    if capacity.sum() <= 0:
+        raise RuntimeError("no eligible policy-days in a state that was allocated claims")
+    share = total * capacity / capacity.sum()
+    take = calibration.largest_remainder(share)
+    take = np.minimum(take, capacity)
+    shortfall = total - int(take.sum())
+    while shortfall > 0:
+        room = capacity - take
+        if room.sum() <= 0:
+            raise RuntimeError("more background claims allocated than eligible policy-days")
+        order = np.argsort(-room, kind="stable")
+        for index in order:
+            if shortfall == 0:
+                break
+            if room[index] > 0:
+                take[index] += 1
+                shortfall -= 1
+    return take
+
+
 def _assert_direction(change: "Change", old: float, new: float, policy_id: str) -> None:
     """A planted change must move the way the scenario says it moved.
 
@@ -223,13 +250,16 @@ class Builder:
 
         for policy in self.lapse_policies:
             start, end = int(self.start_day[policy]), int(self.end_day[policy])
-            latest = end - 130
-            if latest <= start + 90:
-                continue
-            lapse_day = int(rng.integers(start + 90, latest))
-            reinstate_day = lapse_day + int(rng.integers(21, 61))
-            self.changes.append(Change(int(policy), lapse_day, "status", direction="switch"))
-            self.changes.append(Change(int(policy), reinstate_day, "status", direction="switch"))
+            cursor = start + 90
+            for _ in range(int(rng.integers(1, K.LAPSE_CYCLES_MAX + 1))):
+                latest = min(cursor + 200, end - 210)
+                if latest <= cursor:
+                    break
+                lapse_day = int(rng.integers(cursor, latest))
+                reinstate_day = lapse_day + int(rng.integers(*K.LAPSE_REINSTATE_GAP_RANGE))
+                self.changes.append(Change(int(policy), lapse_day, "status", direction="switch"))
+                self.changes.append(Change(int(policy), reinstate_day, "status", direction="switch"))
+                cursor = reinstate_day + 100
 
         terminal_kind = rng.choice(("cancelled", "non_renewed"), size=n_term)
         self.terminal_status = {}
@@ -323,22 +353,29 @@ class Builder:
             block_claim(policy, loss_day - 130, DAY_ANCHOR)
 
         # --- S4: rapid change cluster before a high-severity claim ----------
-        cluster_categories = ("address", "vehicle", "coverage", "deductible")
         for policy in self.scenario_members["S4"]:
             policy = int(policy)
             loss_day = DAY_ANCHOR - K.S4_LOSS_OFFSET
-            for offset, category in zip(K.S4_CLUSTER_OFFSETS, cluster_categories):
-                day = DAY_ANCHOR - offset
-                line = "COLL" if category in ("coverage", "deductible") else None
-                self.changes.append(Change(policy, day, category, line=line))
+            # Room to move in the declared direction, whatever the draw gave.
+            for line in K.DEDUCTIBLE_LINES:
+                self.limits[line][policy] = K.S4_INITIAL_LIMIT
+                self.deductibles[line][policy] = K.S4_INITIAL_DEDUCTIBLE
+            for offset, (category, line, direction) in zip(
+                K.S4_CLUSTER_OFFSETS, K.S4_CLUSTER_CHANGES
+            ):
+                self.changes.append(
+                    Change(policy, DAY_ANCHOR - offset, category, line=line, direction=direction)
+                )
             amount = round(float(rng.uniform(11_000.0, 46_000.0)), 2)
             line = str(rng.choice(("COLL", "PD", "BI")))
             report_day = loss_day + self._lag(rng, K.S4_LOSS_OFFSET)
             self.planted_claims.append(
                 PlantedClaim(policy, loss_day, report_day, line, amount, "S4")
             )
-            block_change(policy, DAY_ANCHOR - 200, loss_day)
-            block_claim(policy, DAY_ANCHOR - 200, DAY_ANCHOR)
+            # The cluster is the whole story, and its directions are declared,
+            # so no ordinary endorsement may move these lines first.
+            block_change(policy, 0, DAY_ANCHOR)
+            block_claim(policy, 0, DAY_ANCHOR)
 
         # --- S5: vehicle and address together, no planted claim -------------
         for policy in self.scenario_members["S5"]:
@@ -423,7 +460,9 @@ class Builder:
             end_day = DAY_ANCHOR - end_offset
             span = K.C5_CLUSTER_SPAN_DAYS
             days = sorted({end_day - span, end_day - (2 * span) // 3, end_day - span // 3, end_day})
-            for day, category in zip(days, cluster_categories):
+            # A mundane explanation: moved house, changed car, adjusted cover.
+            # No claim follows, which is the whole point of the control.
+            for day, category in zip(days, ("address", "vehicle", "coverage", "deductible")):
                 line = "COMP" if category in ("coverage", "deductible") else None
                 self.changes.append(Change(policy, day, category, line=line))
             block_change(policy, days[0] - 120, end_day + 120)
@@ -596,25 +635,68 @@ class Builder:
             planted_by_state.astype(float),
         )
 
+        # The calibration fixes how many claims each sixty-day state carries, but
+        # not where inside that state they land - and the portfolio chart is also
+        # read at thirty days. Splitting each state's allocation across its
+        # thirty-day sub-states in proportion to their eligible days leaves every
+        # state total untouched, so nothing the calibration solved for moves,
+        # while the thirty-day counts stop being a binomial draw.
+        category = np.array([c.category for c in self.material_changes], dtype=object)
+        substate = np.zeros(self.total_days, dtype=np.int64)
+        for index, name in enumerate(K.MATERIAL_CATEGORIES):
+            substate += self._window_flags(category == name, K.SHORT_WINDOW_DAYS) << index
+        n_sub = 1 << len(K.MATERIAL_CATEGORIES)
+
         rng = self.rng("background-claim-placement")
         chosen: list[np.ndarray] = []
         eligible_index = np.flatnonzero(eligible)
-        eligible_state = self.exposure_state[eligible_index]
-        order = np.argsort(eligible_state, kind="stable")
+        key = self.exposure_state[eligible_index].astype(np.int64) * n_sub + substate[eligible_index]
+        order = np.argsort(key, kind="stable")
         eligible_index = eligible_index[order]
-        eligible_state = eligible_state[order]
-        bounds = np.searchsorted(eligible_state, np.arange(calibration.N_STATES + 1))
+        key = key[order]
+        groups, starts = np.unique(key, return_index=True)
+        ends = np.append(starts[1:], key.size)
+        parents = groups // n_sub
         for state, count in enumerate(self.hazard.counts_by_state):
+            count = int(count)
             if count <= 0:
                 continue
-            candidates = eligible_index[bounds[state] : bounds[state + 1]]
-            chosen.append(rng.choice(candidates, size=int(count), replace=False))
+            lo, hi = np.searchsorted(parents, (state, state + 1))
+            capacity = (ends[lo:hi] - starts[lo:hi]).astype(np.int64)
+            take = _proportional_split(count, capacity)
+            for offset, amount in enumerate(take):
+                if amount <= 0:
+                    continue
+                slot = lo + offset
+                candidates = eligible_index[starts[slot] : ends[slot]]
+                chosen.append(rng.choice(candidates, size=int(amount), replace=False))
         flat = np.sort(np.concatenate(chosen)) if chosen else np.empty(0, dtype=np.int64)
 
         policy = np.searchsorted(self.day_offset, flat, side="right") - 1
         day = flat - self.day_offset[policy] + self.start_day[policy]
         self.background_claim_policy = policy
         self.background_claim_day = day
+        self.background_claim_state = self.exposure_state[flat]
+        self.background_claim_stratum = self._severity_strata()[flat]
+
+    def _severity_strata(self) -> np.ndarray:
+        """Per policy-day, how close it sits to the chart's fragile categories.
+
+        For each of vehicle, status and address a day is at level 0 (no such
+        change in the prior ninety days), 1, 2 or 3 (within ninety, sixty or
+        thirty). Those levels are exactly the memberships the portfolio chart
+        counts at its three windows, so holding the severity mix constant within
+        a level holds the chart's bottom three bars steady.
+        """
+        category = np.array([c.category for c in self.material_changes], dtype=object)
+        stratum = np.zeros(self.total_days, dtype=np.int32)
+        for index, name in enumerate(K.SEVERITY_STRATA_CATEGORIES):
+            mask = category == name
+            level = np.zeros(self.total_days, dtype=np.int32)
+            for window in (90, K.CATEGORY_WINDOW_DAYS, 30):
+                level += self._window_flags(mask, window)
+            stratum += level * (4**index)
+        return stratum
 
     # -------------------------------------------------- policy state evolution
     def _evolve_policies(self) -> None:
@@ -882,6 +964,29 @@ class Builder:
             value[bad] = rng.integers(K.REPORT_LAG_MIN_DAYS, np.maximum(max_days[bad], 1) + 1)
         return value
 
+    @staticmethod
+    def _stratified_bands(strata: np.ndarray) -> np.ndarray:
+        """Assign severity bands so every stratum gets the declared mix.
+
+        Drawing bands independently leaves each category's high-severity count
+        binomially noisy, and the bottom of the portfolio chart carries only a
+        few dozen claims - enough noise to reorder vehicle, status and address
+        from one regeneration to the next, which is what a count-ranking
+        contract would fail on. Sorting the claims by stratum and walking a
+        low-discrepancy sequence gives every contiguous run the declared mix to
+        within a fraction of a claim, while the global mix stays exact.
+        """
+        bands = list(K.SEVERITY_MIX)
+        weights = np.array([K.SEVERITY_MIX[band] for band in bands], dtype=float)
+        cuts = np.cumsum(weights / weights.sum())
+        order = np.argsort(strata, kind="stable")
+        golden = 0.6180339887498949
+        positions = (np.arange(strata.size) * golden + 0.5 * golden) % 1.0
+        assigned = np.searchsorted(cuts, positions, side="right").clip(0, len(bands) - 1)
+        out = np.empty(strata.size, dtype=object)
+        out[order] = np.array(bands, dtype=object)[assigned]
+        return out
+
     def _amount_in_band(self, rng, band: str) -> float:
         if band == "catastrophic":
             value = 50_000.0 * float(np.exp(rng.exponential(0.62)))
@@ -926,10 +1031,9 @@ class Builder:
             )
 
         n_background = self.background_claim_policy.size
-        bands = list(K.SEVERITY_MIX)
-        band_p = np.array([K.SEVERITY_MIX[b] for b in bands])
-        band_p = band_p / band_p.sum()
-        drawn_bands = rng.choice(bands, size=n_background, p=band_p)
+        drawn_bands = self._stratified_bands(
+            self.background_claim_stratum * calibration.N_STATES + self.background_claim_state
+        )
         max_lag = DAY_ANCHOR - self.background_claim_day
         lags = self._lags(rng, max_lag)
         for index in range(n_background):

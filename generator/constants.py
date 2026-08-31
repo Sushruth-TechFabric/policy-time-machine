@@ -61,6 +61,7 @@ RATE_RECENT_MATERIAL_CHANGE = 0.085
 RATE_NO_RECENT_MATERIAL_CHANGE = 0.058
 
 CATEGORY_WINDOW_DAYS = 60
+SHORT_WINDOW_DAYS = 30  # the narrowest window the portfolio chart is read at
 CATEGORY_LIFTS = {
     "coverage": 1.80,
     "deductible": 1.50,
@@ -100,15 +101,45 @@ EXPOSURE_KEY_LIFTS = {
 
 EFFECT_TOLERANCE = 0.15  # +/- 15% relative (spec 08 section 2)
 
+# The portfolio chart (MVP capability 3, QC-05/06/13) is a *count* question, not
+# a rate question: for changes linked to a claim with `change_timing =
+# 'before_loss'` and `days_to_next_claim_loss <= W`, how many distinct claims
+# follow each category. A lift ordering does not imply a count ordering, so the
+# count ordering is declared and validated separately at every window the
+# contracts use.
+COUNT_RANKING_WINDOWS = (30, 60, 90)
+# The three categories at the foot of the chart carry only a few dozen
+# high-severity claims each, so which claims land in the severe and catastrophic
+# bands decides their order. Severity is stratified on their window membership
+# so that decision is made by construction rather than by the draw.
+SEVERITY_STRATA_CATEGORIES = ("vehicle", "status", "address")
+# Minimum ratio between adjacent categories, so the chart reads as a ranking
+# rather than as noise.
+COUNT_RANKING_MIN_GAP = 1.25
+COUNT_RANKING_MIN_GAP_ALL_CLAIMS = 1.15
+
 # --- Change emission mix ----------------------------------------------------
 # Weights over the four categories that arrive through ordinary endorsements.
 # `status` is deliberately excluded: lapse/reinstate sequences are constructed
 # populations, never random noise (spec 01 section 6 rule 3, ADR-0003).
+#
+# The mix is a *ranking* parameter, not decoration. Capability 3 asks which
+# changes most often precede claims, and that question counts claims rather than
+# rating them: the count of claims following a category is proportional to how
+# much exposure that category generates multiplied by its declared lift. A
+# category can therefore top the frequency chart on volume alone while sitting
+# last on lift, which is exactly what a baseline-heavy address volume does. The
+# weights below are chosen so that volume x lift descends in the declared
+# order with room to spare, so the lift ranking and the count ranking agree.
+# Address sits far below its lift-neighbours in volume. That is the whole point:
+# at thirty days restricted to high-severity claims the bottom of the chart
+# carries single-digit counts, so the last two bars have to be separated by
+# construction rather than by a few claims' luck.
 ENDORSEMENT_CATEGORY_WEIGHTS = {
-    "coverage": 0.40,
-    "deductible": 0.24,
-    "address": 0.28,
-    "vehicle": 0.08,
+    "coverage": 0.489,
+    "deductible": 0.250,
+    "vehicle": 0.201,
+    "address": 0.060,
 }
 # Endorsements per policy-year, before per-policy heterogeneity.
 ENDORSEMENT_RATE_PER_YEAR = 1.62
@@ -126,8 +157,20 @@ MULTI_CHANGE_ENDORSEMENT_SHARE = 0.15
 COVERAGE_INCREASE_SHARE = 0.82
 DEDUCTIBLE_DECREASE_SHARE = 0.80
 
-# Constructed status population (spec 01 section 6 rule 3).
-N_LAPSE_REINSTATE_POLICIES = 1_200
+# Constructed status population (spec 01 section 6 rule 3). Sized so that status
+# exposure sits between vehicle and address on the count ranking; a policy that
+# lapses once tends to lapse again, so the population is a modest share of the
+# book carrying several cycles rather than a large share carrying one.
+N_LAPSE_REINSTATE_POLICIES = 1_300
+LAPSE_CYCLES_MAX = 3  # cycles per policy, drawn uniformly from 1..this
+# Days a policy stays lapsed before reinstatement. The lower bound matters to
+# the portfolio chart: a lapse and its reinstatement closer together than the
+# window would share one window, so status would shed less exposure than the
+# other categories as the window narrows and would close on vehicle at thirty
+# days while sitting comfortably below it at sixty. Keeping the pair further
+# apart than the widest window makes status behave like every other category,
+# so one volume setting holds the ranking at all three windows.
+LAPSE_REINSTATE_GAP_RANGE = (95, 190)
 N_TERMINATING_POLICIES = 250  # end the window cancelled or non_renewed
 N_AGENT_CHANGE_POLICIES = 320  # derived category, never material
 
@@ -144,7 +187,11 @@ SEVERITY_BANDS = (
     ("severe", 10_000.0, 50_000.0),
     ("catastrophic", 50_000.0, float("inf")),
 )
-SEVERITY_MIX = {"minor": 0.44, "moderate": 0.33, "severe": 0.19, "catastrophic": 0.04}
+# Designed around the cuts rather than justified against them (ADR-0008). The
+# high-severity share is deliberately generous: the portfolio chart counts only
+# severe and catastrophic claims, and a thin tail there would put the bottom of
+# the ranking into single digits where it could not be read.
+SEVERITY_MIX = {"minor": 0.40, "moderate": 0.28, "severe": 0.26, "catastrophic": 0.06}
 
 # Coverage line mix per severity band. Liability lines carry the large losses.
 CLAIM_LINE_WEIGHTS = {
@@ -196,6 +243,26 @@ S3_ADDRESS_CHANGE_OFFSET = 28
 
 S4_CLUSTER_OFFSETS = (82, 75, 68, 60)  # four changes across 22 days
 S4_LOSS_OFFSET = 31
+# S4 is the only scenario whose claims are guaranteed high-severity, so its four
+# changes land directly on the portfolio chart. They are confined to coverage
+# and deductible - a customer overhauling their physical damage cover - so the
+# planted mass reinforces the top of the declared ranking instead of lifting the
+# bottom of it.
+#
+# The order within the cluster matters as much as the membership. Only the last
+# change is close enough to the loss to enter the thirty-day window, and the two
+# other planted deductible moves (S2 at a gap of 32 days, S4's own earlier ones)
+# all fall outside it, while S1 and S6 put coverage well inside. Ending the
+# cluster on a deductible change is what keeps deductible ahead of vehicle at
+# thirty days as well as at sixty and ninety.
+S4_CLUSTER_CHANGES = (
+    ("coverage", "COLL", "increase"),
+    ("coverage", "COMP", "increase"),
+    ("deductible", "COLL", "decrease"),
+    ("deductible", "COMP", "decrease"),
+)
+S4_INITIAL_LIMIT = 10_000.0
+S4_INITIAL_DEDUCTIBLE = 1_000.0
 
 S5_VEHICLE_OFFSET = 73
 S5_ADDRESS_OFFSET = 48

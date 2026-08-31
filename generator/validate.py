@@ -155,6 +155,64 @@ def derive_material_changes(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
     return changes
 
 
+def severity_band(amount: pd.Series) -> pd.Series:
+    """The fixed cuts of ADR-0008. One code path, as the ADR requires."""
+    return pd.cut(
+        amount,
+        bins=[low for _, low, _ in K.SEVERITY_BANDS] + [np.inf],
+        labels=[band for band, _, _ in K.SEVERITY_BANDS],
+        right=False,
+    )
+
+
+def link_changes_to_claims(changes: pd.DataFrame, claim: pd.DataFrame) -> pd.DataFrame:
+    """Reproduce the Linked Claim of ADR-0004 from the source tables.
+
+    The Linked Claim is the first claim on the policy **reported** at or after
+    the change - not the next claim by loss date. `days_to_next_claim_loss` is
+    therefore signed, and `change_timing` partitions linked rows into
+    `before_loss` and `after_loss_before_report`. The portfolio chart filters on
+    both, so both are rebuilt here rather than approximated: a check that
+    approximated the linkage would pass on data the contracts fail.
+    """
+    left = changes.sort_values("change_date", kind="stable")
+    right = (
+        claim[["policy_id", "claim_id", "loss_date", "report_date", "settled_amount"]]
+        .sort_values("report_date", kind="stable")
+        .rename(columns={"claim_id": "next_claim_id"})
+    )
+    linked = pd.merge_asof(
+        left,
+        right,
+        left_on="change_date",
+        right_on="report_date",
+        by="policy_id",
+        direction="forward",
+    )
+    linked["days_to_next_claim_loss"] = (linked["loss_date"] - linked["change_date"]).dt.days
+    linked["days_to_next_claim_report"] = (linked["report_date"] - linked["change_date"]).dt.days
+    linked["change_timing"] = np.where(
+        linked["days_to_next_claim_loss"] >= 0, "before_loss", "after_loss_before_report"
+    )
+    # All linkage columns are NULL together on an unlinked change (ADR-0004).
+    unlinked = linked["next_claim_id"].isna()
+    linked.loc[unlinked, ["days_to_next_claim_loss", "days_to_next_claim_report", "change_timing"]] = None
+    linked["next_claim_severity"] = severity_band(linked["settled_amount"])
+    return linked
+
+
+def windowed_claim_counts(linked: pd.DataFrame, window: int, high_severity_only: bool) -> dict[str, int]:
+    """Distinct linked claims per category - the portfolio chart's own measure."""
+    subset = linked[
+        (linked["change_timing"] == "before_loss")
+        & (linked["days_to_next_claim_loss"] <= window)
+    ]
+    if high_severity_only:
+        subset = subset[subset["next_claim_severity"].isin(("severe", "catastrophic"))]
+    counts = subset.groupby("change_category")["next_claim_id"].nunique()
+    return {category: int(counts.get(category, 0)) for category in K.MATERIAL_CATEGORIES}
+
+
 def policy_exposure(frames: dict[str, pd.DataFrame], anchor: pd.Timestamp) -> pd.DataFrame:
     """Start and end of each policy's time on the books.
 
@@ -344,6 +402,35 @@ def run(out_dir: Path) -> tuple[Report, dict]:
             f"({relative:+.1%} relative), n={n} claims",
         )
     measurements["exposure_key_lifts"] = key_lifts
+
+    # --- windowed count ranking (QC-05, QC-06, QC-13) ------------------------
+    # A lift ordering and a count ordering are different claims about the data,
+    # and the portfolio chart asks for the second one. Validating only the first
+    # is what let a baseline-heavy address volume top the chart while every
+    # effect-size check passed.
+    linked = link_changes_to_claims(material, claim)
+    measurements["windowed_counts"] = {}
+    for high_severity, label, min_gap in (
+        (True, "high-severity claims", K.COUNT_RANKING_MIN_GAP),
+        (False, "all claims", K.COUNT_RANKING_MIN_GAP_ALL_CLAIMS),
+    ):
+        for window in K.COUNT_RANKING_WINDOWS:
+            counts = windowed_claim_counts(linked, window, high_severity)
+            measurements["windowed_counts"][f"{'high' if high_severity else 'all'}_{window}d"] = counts
+            ordered = [counts[category] for category in K.CATEGORY_RANKING]
+            gaps = [
+                (ordered[i] / ordered[i + 1]) if ordered[i + 1] else float("inf")
+                for i in range(len(ordered) - 1)
+            ]
+            passed = all(gap >= min_gap for gap in gaps) and ordered[-1] > 0
+            report.add(
+                f"count ranking at {window}d, {label}",
+                passed,
+                " > ".join(
+                    f"{category} {counts[category]}" for category in K.CATEGORY_RANKING
+                )
+                + f"  (min adjacent ratio {min(gaps):.2f}, required {min_gap:.2f})",
+            )
 
     # --- severity bands (ADR-0008) -------------------------------------------
     bands = pd.cut(
