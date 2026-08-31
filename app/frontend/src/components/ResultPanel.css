@@ -93,6 +93,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Aggregated result: chart and table share the row, wrapping to stacked
+   when the panel is narrow (the 40/60 split view). */
+.answer-visual-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--space-2);
+  align-items: start;
+}
+
 .result-table-wrap {
   overflow: auto;
   max-height: 460px;

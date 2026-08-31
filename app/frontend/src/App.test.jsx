@@ -66,6 +66,24 @@ describe('App smoke test (mock mode)', () => {
     expect(screen.queryByText(/^Timeline$/)).not.toBeInTheDocument();
   });
 
+  it('a second tab opens with fresh state and the first tab keeps its result', async () => {
+    render(<App />);
+    await ask('Show policies where coverage increased within 30 days before a claim.');
+    await waitFor(() => expect(document.querySelector('.result-row-count')).not.toBeNull());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open a new investigation tab' }));
+
+    // Two tabs exist; the new one is active and shows the showcase, while the
+    // first tab's answer card stays mounted but hidden.
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.getByText('Ask your policy data anything.')).toBeVisible();
+    expect(document.querySelector('.result-row-count')).not.toBeVisible();
+
+    // Switching back restores the first tab's result untouched.
+    fireEvent.click(screen.getByRole('button', { name: 'Coverage up before claims' }));
+    expect(document.querySelector('.result-row-count')).toBeVisible();
+  });
+
   it('the evidence drawer is collapsed by default and expands to show the generated SQL', async () => {
     render(<App />);
     await ask('Show policies where coverage increased within 30 days before a claim.');

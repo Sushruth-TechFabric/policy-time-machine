@@ -1,74 +1,60 @@
+import { useCallback, useRef, useState } from 'react';
 import './App.css';
-import TopBar from './components/TopBar.jsx';
-import Trail from './components/Trail.jsx';
-import Timeline from './components/Timeline.jsx';
-import ResultPanel from './components/ResultPanel.jsx';
-import ChipRow from './components/ChipRow.jsx';
-import EmptyState from './components/EmptyState.jsx';
-import { useInvestigation } from './hooks/useInvestigation.js';
+import AppHeader from './components/AppHeader.jsx';
+import InvestigationWorkspace from './components/InvestigationWorkspace.jsx';
 
 /**
- * One screen, three regions, nothing else (docs/specs/06-ux-specification.md
- * §1). The fixed ~40/60 split exists only when a timeline is showing —
- * otherwise the result panel takes the full width (§2). Before the first
- * turn, the result region carries the capability showcase instead.
+ * The app is a strip of investigation tabs over independent workspaces.
+ * Every workspace stays mounted — hidden, not unmounted — so each tab keeps
+ * its Genie conversation, trail, and timelines intact while the user works
+ * across several lines of enquiry in parallel.
  */
 function App() {
-  const {
-    trail,
-    activeIndex,
-    activeNode,
-    displayedTimelineId,
-    displayedTimeline,
-    genieLoading,
-    pendingQuestion,
-    bootError,
-    highlightReset,
-    chips,
-    submitQuestion,
-    openPolicyTimeline,
-    findSimilar,
-    goToNode,
-    startNewInvestigation,
-  } = useInvestigation();
+  const [tabs, setTabs] = useState([{ id: 1, label: null }]);
+  const [activeId, setActiveId] = useState(1);
+  const nextIdRef = useRef(2);
 
-  const split = Boolean(displayedTimelineId);
-  const showShowcase = trail.length === 0 && !genieLoading && !displayedTimelineId;
+  const addTab = useCallback(() => {
+    const id = nextIdRef.current;
+    nextIdRef.current += 1;
+    setTabs((t) => [...t, { id, label: null }]);
+    setActiveId(id);
+  }, []);
+
+  const closeTab = useCallback(
+    (id) => {
+      setTabs((t) => {
+        if (t.length <= 1) return t;
+        const index = t.findIndex((tab) => tab.id === id);
+        const next = t.filter((tab) => tab.id !== id);
+        setActiveId((current) => {
+          if (current !== id) return current;
+          const neighbour = next[Math.min(index, next.length - 1)];
+          return neighbour.id;
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
+  const setLabel = useCallback((id, label) => {
+    setTabs((t) => (t.some((tab) => tab.id === id && tab.label !== label)
+      ? t.map((tab) => (tab.id === id ? { ...tab, label } : tab))
+      : t));
+  }, []);
 
   return (
     <div className="app">
-      <TopBar
-        onSubmit={submitQuestion}
-        onNewInvestigation={startNewInvestigation}
-        disabled={genieLoading}
-        highlightReset={highlightReset}
-      />
-      <Trail trail={trail} activeIndex={activeIndex} onSelect={goToNode} />
-      {bootError && <div className="app-boot-error">{bootError}</div>}
-
-      <div className={`app-body ${split ? 'split' : 'full'}`}>
-        <div className="timeline-region">
-          <Timeline
-            policyId={displayedTimelineId}
-            data={displayedTimeline}
-            onFindSimilar={findSimilar}
-            findSimilarBusy={genieLoading}
+      <AppHeader tabs={tabs} activeId={activeId} onSelect={setActiveId} onClose={closeTab} onNew={addTab} />
+      {tabs.map((tab) => (
+        <div key={tab.id} className="tab-panel" hidden={tab.id !== activeId}>
+          <InvestigationWorkspace
+            onLabel={(label) => setLabel(tab.id, label)}
+            onNewInvestigation={addTab}
           />
         </div>
-        <div className="result-region">
-          {showShowcase ? (
-            <EmptyState />
-          ) : (
-            <ResultPanel
-              node={activeNode}
-              loading={genieLoading}
-              pendingQuestion={pendingQuestion}
-              onPolicyClick={openPolicyTimeline}
-            />
-          )}
-          <ChipRow chips={chips} onSelect={submitQuestion} disabled={genieLoading} />
-        </div>
-      </div>
+      ))}
     </div>
   );
 }

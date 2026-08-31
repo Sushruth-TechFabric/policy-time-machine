@@ -1,7 +1,8 @@
 import { POLICY_ID_PATTERN } from '../lib/policyId.js';
-import { autoChartColumns } from '../lib/chartRules.js';
+import { autoChart } from '../lib/chartRules.js';
 import { formatNumber } from '../lib/format.js';
 import BarChart from './BarChart.jsx';
+import LineChart from './LineChart.jsx';
 import EvidenceDrawer from './EvidenceDrawer.jsx';
 import AgentWorking from './AgentWorking.jsx';
 import './ResultPanel.css';
@@ -148,7 +149,7 @@ export default function ResultPanel({ node, loading, pendingQuestion, onPolicyCl
     );
   }
 
-  const chart = autoChartColumns(genie.columns, genie.rows);
+  const chart = autoChart(genie.columns, genie.rows);
   const rowCount = genie.rows.length;
   const policyCount = distinctPolicyCount(genie.columns, genie.rows);
 
@@ -163,8 +164,19 @@ export default function ResultPanel({ node, loading, pendingQuestion, onPolicyCl
           </div>
         )}
         <AnswerMeta node={node} rowCount={rowCount} policyCount={policyCount} />
-        {chart && <BarChart rows={genie.rows} textColumn={chart.textColumn} numericColumn={chart.numericColumn} />}
-        <ResultTable columns={genie.columns} rows={genie.rows} onPolicyClick={onPolicyClick} />
+        {chart ? (
+          // Aggregated shapes: the visual sits beside the rows it summarises.
+          <div className="answer-visual-split">
+            {chart.type === 'line' ? (
+              <LineChart rows={genie.rows} textColumn={chart.textColumn} numericColumn={chart.numericColumn} />
+            ) : (
+              <BarChart rows={genie.rows} textColumn={chart.textColumn} numericColumn={chart.numericColumn} />
+            )}
+            <ResultTable columns={genie.columns} rows={genie.rows} onPolicyClick={onPolicyClick} />
+          </div>
+        ) : (
+          <ResultTable columns={genie.columns} rows={genie.rows} onPolicyClick={onPolicyClick} />
+        )}
         {/* description is omitted here — it already renders above as "How Genie read it" */}
         <EvidenceDrawer rowCount={rowCount} sql={genie.generated_sql} description={null} />
       </div>

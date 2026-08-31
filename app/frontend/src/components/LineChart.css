@@ -1,0 +1,54 @@
+.line-chart {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+  background: var(--panel);
+}
+
+.line-chart-title {
+  font-size: 11.5px;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-600);
+  margin-bottom: 8px;
+}
+
+.line-chart-svg {
+  width: 100%;
+  height: 200px;
+  display: block;
+}
+
+.lc-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.lc-area {
+  fill: var(--agent-soft);
+}
+
+.lc-line {
+  fill: none;
+  stroke: var(--agent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.lc-dot {
+  fill: var(--agent);
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+
+.lc-dot:hover {
+  fill: var(--agent-strong);
+}
+
+.lc-axis-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  fill: var(--ink-300);
+}
