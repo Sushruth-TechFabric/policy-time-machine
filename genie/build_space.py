@@ -124,6 +124,15 @@ INSTRUCTION_BLOCKS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
     (
+        "Counting rules — material changes, superlatives, and per-claim grouping",
+        (
+            "1. Counting a policy's or customer's changes means MATERIAL changes only: use is_material = true, or read policy_profile.material_change_count directly. Never count raw policy_change_event rows — that includes non-material premium and agent changes.",
+            "2. A plural superlative with no stated number (\"highest\", \"most\", \"top\" number of changes) means the top 10, ordered descending — never a single row via RANK() = 1 or LIMIT 1.",
+            "3. \"Largest\"/\"biggest\" claims used as a plural with no stated number means the top 10-20 claims by settled_amount, not one claim. A claim with no preceding change is a valid, expected result — use LEFT JOIN so the claim stays visible; an INNER JOIN that drops it is wrong.",
+            "4. \"Several\"/\"multiple\" material changes before A claim counts changes preceding the SAME claim: GROUP BY (policy_id, next_claim_id), never policy_id alone — grouping by policy_id alone conflates changes preceding different claims.",
+        ),
+    ),
+    (
         "Stated limits — surface these rather than improvising around them",
         (
             "Similarity returns at most 20 neighbours. A request for more returns 20 with the limit stated.",
@@ -134,9 +143,10 @@ INSTRUCTION_BLOCKS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
     (
-        "Comparison questions — always return both groups",
+        "Comparison questions — always return group, rate, and n together",
         (
-            "A question comparing a group against the rest (e.g. recent changers versus everyone else) must return both groups with their sample sizes (n). A single group's rate is never returned alone.",
+            "1. A comparison question (e.g. recent changers versus everyone else) must return exactly two groups, and every group must carry all three: a group label, its rate/measure (e.g. AVG(claims_per_year)), and its sample size (n).",
+            "2. A rate never appears without its comparison group and n; a comparison never appears without its rate. Returning only counts with no rate column, or a single group's rate alone, is always wrong (ADR-0014).",
         ),
     ),
     (
@@ -190,7 +200,7 @@ WHERE policy_id = 'P-18492'
 ORDER BY event_date""",
     ),
     (
-        "Which material changes most often precede high-severity claims",
+        "Which material changes most often precede high-severity claims, within 60 days",
         """SELECT change_category,
        COUNT(*) AS change_count,
        COUNT(DISTINCT next_claim_id) AS claim_count
@@ -254,6 +264,91 @@ ORDER BY policies DESC""",
     (
         "Policies with nothing noteworthy",
         """SELECT policy_id FROM policy_profile WHERE noteworthy_pattern_count = 0""",
+    ),
+    (
+        "Show policies where deductible decreased within 90 days before a claim",
+        """SELECT policy_id, change_date, coverage_line, old_value_num, new_value_num,
+       days_to_next_claim_loss, next_claim_amount, next_claim_severity
+FROM policy_change_event
+WHERE change_category = 'deductible'
+  AND change_direction = 'decrease'
+  AND change_timing = 'before_loss'
+  AND days_to_next_claim_loss <= 90
+ORDER BY days_to_next_claim_loss""",
+    ),
+    (
+        "Which customers have the highest number of policy changes",
+        """SELECT customer_id, SUM(material_change_count) AS material_change_count
+FROM policy_profile
+GROUP BY customer_id
+ORDER BY material_change_count DESC, customer_id ASC
+LIMIT 10""",
+    ),
+    (
+        "Find policies with several material changes before a high-severity claim",
+        """SELECT policy_id, next_claim_id, COUNT(*) AS material_change_count
+FROM policy_change_event
+WHERE is_material = true
+  AND change_timing = 'before_loss'
+  AND next_claim_severity IN ('severe','catastrophic')
+GROUP BY policy_id, next_claim_id
+HAVING COUNT(*) > 1
+ORDER BY material_change_count DESC""",
+    ),
+    (
+        "What happened immediately before the largest claims",
+        """WITH largest_claims AS (
+  SELECT claim_id, policy_id, settled_amount, severity_band
+  FROM claim_event
+  ORDER BY settled_amount DESC
+  LIMIT 20
+),
+preceding_change AS (
+  SELECT next_claim_id AS claim_id, change_date, change_category, days_to_next_claim_loss,
+         ROW_NUMBER() OVER (PARTITION BY next_claim_id ORDER BY days_to_next_claim_loss ASC) AS rn
+  FROM policy_change_event
+  WHERE is_material = true
+    AND change_timing = 'before_loss'
+)
+SELECT lc.claim_id, lc.policy_id, lc.settled_amount, lc.severity_band,
+       pc.change_date, pc.change_category, pc.days_to_next_claim_loss
+FROM largest_claims lc
+LEFT JOIN preceding_change pc
+  ON pc.claim_id = lc.claim_id AND pc.rn = 1
+ORDER BY lc.settled_amount DESC""",
+    ),
+    (
+        "Which material changes happen most often, within 60 days, before claims above $25,000",
+        """SELECT change_category,
+       COUNT(*) AS change_count,
+       COUNT(DISTINCT next_claim_id) AS claim_count
+FROM policy_change_event
+WHERE is_material = true
+  AND change_timing = 'before_loss'
+  AND days_to_next_claim_loss <= 60
+  AND next_claim_amount > 25000
+GROUP BY change_category
+ORDER BY claim_count DESC""",
+    ),
+    (
+        "Are claims more frequent, within 60 days, following specific types of material policy changes",
+        """WITH by_category AS (
+  SELECT change_category,
+         COUNT(DISTINCT next_claim_id) AS claim_count
+  FROM policy_change_event
+  WHERE is_material = true
+    AND change_timing = 'before_loss'
+    AND days_to_next_claim_loss <= 60
+  GROUP BY change_category
+),
+baseline AS (
+  SELECT COUNT(DISTINCT claim_id) AS baseline_claim_count
+  FROM claim_event
+)
+SELECT b.change_category, b.claim_count, l.baseline_claim_count
+FROM by_category b
+CROSS JOIN baseline l
+ORDER BY b.claim_count DESC""",
     ),
 )
 

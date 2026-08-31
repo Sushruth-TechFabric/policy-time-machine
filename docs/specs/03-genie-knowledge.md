@@ -73,9 +73,18 @@ Genie must use these definitions rather than improvising.
 
 ---
 
+## 4a. Counting rules — material changes, superlatives, and per-claim grouping
+
+1. Counting a policy's or customer's changes means **material** changes only: use `is_material = true`, or read `policy_profile.material_change_count` directly. Never count raw `policy_change_event` rows — that includes non-material premium and agent changes.
+2. A plural superlative with no stated number ("highest", "most", "top" number of changes) means the top 10, ordered descending — never a single row via `RANK() = 1` or `LIMIT 1`.
+3. "Largest"/"biggest" claims used as a plural with no stated number means the top 10-20 claims by `settled_amount`, not one claim. A claim with no preceding change is a valid, expected result — use `LEFT JOIN` so the claim stays visible; an `INNER JOIN` that drops it is wrong.
+4. "Several"/"multiple" material changes before a claim counts changes preceding the **same** claim: `GROUP BY (policy_id, next_claim_id)`, never `policy_id` alone — grouping by `policy_id` alone conflates changes preceding different claims.
+
+---
+
 ## 5. Example SQL library
 
-Genie learns from these. Each maps to one of the fourteen example questions.
+Genie learns from these. Each maps to one of the example questions.
 
 **Coverage increased within 30 days before a claim**
 ```sql
@@ -104,7 +113,7 @@ WHERE policy_id = 'P-18492'
 ORDER BY event_date
 ```
 
-**Which material changes most often precede high-severity claims**
+**Which material changes most often precede high-severity claims, within 60 days**
 ```sql
 SELECT change_category,
        COUNT(*) AS change_count,
@@ -117,7 +126,7 @@ WHERE is_material = true
 GROUP BY change_category
 ORDER BY claim_count DESC
 ```
-Note `COUNT(DISTINCT next_claim_id)`: several changes share one claim, so `COUNT(*)` counts changes, not claims.
+Note `COUNT(DISTINCT next_claim_id)`: several changes share one claim, so `COUNT(*)` counts changes, not claims. This 60-day, high-severity, `COUNT(DISTINCT next_claim_id)` formulation is the shared measure behind QC-05, QC-06 and QC-13 (spec 05 §4) — the population differs (severity band, dollar threshold, or comparison-with-baseline) but the counting method never does.
 
 **Vehicle and address changed within 60 days of each other**
 ```sql
@@ -155,7 +164,7 @@ SELECT CASE WHEN last_material_change_date >= CURRENT_DATE - INTERVAL 90 DAY
 FROM policy_profile
 GROUP BY 1
 ```
-Comparison questions return **both groups with their sample sizes**. A single group's rate is never returned alone (ADR-0014).
+Comparison questions return **both groups, each with a label, a rate, and its sample size (n)**. A rate never appears without its comparison group and n; a comparison never appears without its rate — omitting either half is always wrong, not just incomplete (ADR-0014).
 
 **Similar histories**
 ```sql
@@ -179,6 +188,102 @@ ORDER BY policies DESC
 ```sql
 SELECT policy_id FROM policy_profile WHERE noteworthy_pattern_count = 0
 ```
+
+**Deductible decreased within 90 days before a claim**
+```sql
+SELECT policy_id, change_date, coverage_line, old_value_num, new_value_num,
+       days_to_next_claim_loss, next_claim_amount, next_claim_severity
+FROM policy_change_event
+WHERE change_category = 'deductible'
+  AND change_direction = 'decrease'
+  AND change_timing = 'before_loss'
+  AND days_to_next_claim_loss <= 90
+ORDER BY days_to_next_claim_loss
+```
+The window is load-bearing (spec 05 QC-07, ADR-0004): report-date-anchored linkage legitimately attaches old, unrelated deductible decreases (300+ days prior) to an eventual claim; a bare `before_loss` filter with no window returns them. 90 days comfortably covers the planted S2 case (32 days) and excludes the far-prior control case.
+
+**Which customers have the highest number of policy changes**
+```sql
+SELECT customer_id, SUM(material_change_count) AS material_change_count
+FROM policy_profile
+GROUP BY customer_id
+ORDER BY material_change_count DESC, customer_id ASC
+LIMIT 10
+```
+Counts material changes from `policy_profile`, never raw `policy_change_event` rows (rule 4.a.1); "highest" with no number means top 10 (rule 4.a.2), not `RANK() = 1`.
+
+**Several material changes before a high-severity claim**
+```sql
+SELECT policy_id, next_claim_id, COUNT(*) AS material_change_count
+FROM policy_change_event
+WHERE is_material = true
+  AND change_timing = 'before_loss'
+  AND next_claim_severity IN ('severe','catastrophic')
+GROUP BY policy_id, next_claim_id
+HAVING COUNT(*) > 1
+ORDER BY material_change_count DESC
+```
+Grouped by `(policy_id, next_claim_id)`, not `policy_id` alone (rule 4.a.4) — otherwise changes preceding two different claims on the same policy are wrongly summed together.
+
+**What happened immediately before the largest claims**
+```sql
+WITH largest_claims AS (
+  SELECT claim_id, policy_id, settled_amount, severity_band
+  FROM claim_event
+  ORDER BY settled_amount DESC
+  LIMIT 20
+),
+preceding_change AS (
+  SELECT next_claim_id AS claim_id, change_date, change_category, days_to_next_claim_loss,
+         ROW_NUMBER() OVER (PARTITION BY next_claim_id ORDER BY days_to_next_claim_loss ASC) AS rn
+  FROM policy_change_event
+  WHERE is_material = true
+    AND change_timing = 'before_loss'
+)
+SELECT lc.claim_id, lc.policy_id, lc.settled_amount, lc.severity_band,
+       pc.change_date, pc.change_category, pc.days_to_next_claim_loss
+FROM largest_claims lc
+LEFT JOIN preceding_change pc
+  ON pc.claim_id = lc.claim_id AND pc.rn = 1
+ORDER BY lc.settled_amount DESC
+```
+Top 20 by `settled_amount`, never `RANK() = 1` (rule 4.a.3). `LEFT JOIN` keeps every claim visible, including one with no preceding change — that absence is itself the correct, expected answer for at least one row.
+
+**Which material changes happen most often, within 60 days, before claims above $25,000**
+```sql
+SELECT change_category,
+       COUNT(*) AS change_count,
+       COUNT(DISTINCT next_claim_id) AS claim_count
+FROM policy_change_event
+WHERE is_material = true
+  AND change_timing = 'before_loss'
+  AND days_to_next_claim_loss <= 60
+  AND next_claim_amount > 25000
+GROUP BY change_category
+ORDER BY claim_count DESC
+```
+
+**Are claims more frequent, within 60 days, following specific types of material policy changes**
+```sql
+WITH by_category AS (
+  SELECT change_category,
+         COUNT(DISTINCT next_claim_id) AS claim_count
+  FROM policy_change_event
+  WHERE is_material = true
+    AND change_timing = 'before_loss'
+    AND days_to_next_claim_loss <= 60
+  GROUP BY change_category
+),
+baseline AS (
+  SELECT COUNT(DISTINCT claim_id) AS baseline_claim_count
+  FROM claim_event
+)
+SELECT b.change_category, b.claim_count, l.baseline_claim_count
+FROM by_category b
+CROSS JOIN baseline l
+ORDER BY b.claim_count DESC
+```
+Carries a `baseline_claim_count` alongside the per-category count, so the result is a comparison rather than a bare ranking.
 
 ---
 

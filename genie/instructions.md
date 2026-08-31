@@ -40,6 +40,13 @@ An investigation tool for exploring how insurance policies changed over time and
 * rapid change cluster means the rapid_change_cluster pattern; do not recompute it, read pattern_rapid_change_cluster on policy_profile or policy_pattern_match.
 * similar means a row in policy_similarity; top 20 only.
 
+## Counting rules — material changes, superlatives, and per-claim grouping
+
+* 1. Counting a policy's or customer's changes means MATERIAL changes only: use is_material = true, or read policy_profile.material_change_count directly. Never count raw policy_change_event rows — that includes non-material premium and agent changes.
+* 2. A plural superlative with no stated number ("highest", "most", "top" number of changes) means the top 10, ordered descending — never a single row via RANK() = 1 or LIMIT 1.
+* 3. "Largest"/"biggest" claims used as a plural with no stated number means the top 10-20 claims by settled_amount, not one claim. A claim with no preceding change is a valid, expected result — use LEFT JOIN so the claim stays visible; an INNER JOIN that drops it is wrong.
+* 4. "Several"/"multiple" material changes before A claim counts changes preceding the SAME claim: GROUP BY (policy_id, next_claim_id), never policy_id alone — grouping by policy_id alone conflates changes preceding different claims.
+
 ## Stated limits — surface these rather than improvising around them
 
 * Similarity returns at most 20 neighbours. A request for more returns 20 with the limit stated.
@@ -48,9 +55,10 @@ An investigation tool for exploring how insurance policies changed over time and
 * Claim amounts are single settled figures. There is no claim development history.
 * Only personal auto is in scope.
 
-## Comparison questions — always return both groups
+## Comparison questions — always return group, rate, and n together
 
-* A question comparing a group against the rest (e.g. recent changers versus everyone else) must return both groups with their sample sizes (n). A single group's rate is never returned alone.
+* 1. A comparison question (e.g. recent changers versus everyone else) must return exactly two groups, and every group must carry all three: a group label, its rate/measure (e.g. AVG(claims_per_year)), and its sample size (n).
+* 2. A rate never appears without its comparison group and n; a comparison never appears without its rate. Returning only counts with no rate column, or a single group's rate alone, is always wrong (ADR-0014).
 
 ## Approved vocabulary — governs every answer, every label, every explanation
 

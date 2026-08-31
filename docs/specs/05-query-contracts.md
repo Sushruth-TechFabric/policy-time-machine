@@ -41,14 +41,18 @@ This is the contract that guards the critical instruction in ADR-0004. If Genie 
 ### QC-04 — "Find policies with several material changes before a high-severity claim."
 **Cohort.** Must include all 30 S4 policies. Must exclude C1 and C2. **Negative assertion:** every returned claim severity is `severe` or `catastrophic`.
 
-### QC-05 — "Which policy fields change most frequently before claims?"
+### QC-05 — "Which material changes most often precede high-severity claims, within 60 days?"
 **Ranking.** Returned category ordering must match the declared ordering: coverage, deductible, vehicle, status, address. Magnitudes unasserted.
 
-### QC-06 — "Which material changes happen most frequently before claims above $25,000?"
-**Ranking.** Same ordering assertion. **Negative assertion:** no returned claim amount is at or below $25,000.
+Wording note: this question, QC-06 and QC-13 all measure the same underlying statistic — `COUNT(DISTINCT next_claim_id)` of material changes within a 60-day, `before_loss` window (spec 03 §5) — so the declared ordering can be asserted consistently across all three. What differs between them is the claim population (high-severity band here, a dollar threshold in QC-06, a baseline comparison in QC-13), never the counting method. The question text is deliberately the same phrasing Genie's matching example carries, so the retrieved example and the generated SQL agree on the measure being asked for.
 
-### QC-07 — "Show policies where deductible decreased before a claim."
-**Cohort.** Must include all 30 S2 policies. Must exclude C1. **Negative assertions:** every row has `change_category = 'deductible'` and `change_direction = 'decrease'`; no row has a coverage line outside `COLL` and `COMP`, since only those carry deductibles.
+### QC-06 — "Which material changes happen most often, within 60 days, before claims above $25,000?"
+**Ranking.** Same ordering assertion, same windowed `COUNT(DISTINCT next_claim_id)` formulation as QC-05 (see note there). **Negative assertion:** no returned claim amount is at or below $25,000.
+
+### QC-07 — "Show policies where deductible decreased within 90 days before a claim."
+**Cohort.** Must include all 30 S2 policies. Must exclude C1. **Negative assertions:** every row has `change_category = 'deductible'` and `change_direction = 'decrease'`; no row has a coverage line outside `COLL` and `COMP`, since only those carry deductibles; no row has `days_to_next_claim_loss > 90`.
+
+The 90-day window is load-bearing, not decorative (ADR-0004): under report-date-anchored linkage, C1 policies (high-value claim, no preceding change) legitimately link an old, unrelated deductible decrease (300+ days prior) to the eventual claim, so an unwindowed "must exclude C1" assertion is unsatisfiable against a correct query. 90 days comfortably covers the planted S2 case (~32 days prior) while excluding the far-prior C1 case, making the exclusion assertion satisfiable by a query that follows the two-filter rule rather than by one that additionally, silently, gets the linkage wrong.
 
 ### QC-08 — "Which policies changed vehicles and addresses within 60 days?"
 **Cohort.** Must include all 35 S5 policies. **Negative assertion:** no row has `ABS(nearest_address_change_offset_days) > 60`. The assertion must pass irrespective of which change came first — the symmetric case is the point of the signed offset.
@@ -67,8 +71,8 @@ This is the contract that guards the critical instruction in ADR-0004. If Genie 
 ### QC-12 — "What happened immediately before the largest claims?"
 **Cohort.** Must include the changes preceding the top claims by settled amount. Must include at least one C1 policy — a large claim with no preceding change — because a result implying every large claim has a preceding change is a wrong answer, not a clean one.
 
-### QC-13 — "Are claims more frequent following specific types of policy changes?"
-**Ranking**, with a comparison element. Category ordering must match the declared ordering, and the result must carry a baseline or comparison figure. **Negative assertion:** returned prose and labels contain no term from the banned vocabulary list — this question is the one most likely to elicit causal language.
+### QC-13 — "Are claims more frequent, within 60 days, following specific types of material policy changes?"
+**Ranking**, with a comparison element. Category ordering must match the declared ordering, and the result must carry a baseline or comparison figure. Same windowed `COUNT(DISTINCT next_claim_id)` formulation as QC-05/06 (see note under QC-05); the comparison figure is a total baseline claim count, not a magnitude claim. **Negative assertion:** returned prose and labels contain no term from the banned vocabulary list — this question is the one most likely to elicit causal language.
 
 ### QC-14 — "Show unusual historical patterns worth investigating."
 **Table-routed.** Pattern counts must equal the deterministic planted counts in `policy_pattern_match` exactly. **Negative assertion:** every `pattern_name` returned is one of the six defined codes — Genie must not invent a pattern.

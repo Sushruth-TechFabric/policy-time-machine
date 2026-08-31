@@ -313,6 +313,19 @@ def check_qc07(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
         if bad_line:
             return _fail(f"Returned rows include a coverage line outside COLL/COMP: {set(bad_line)}.")
 
+    # The question carries an explicit 90-day window (spec 05 QC-07, ADR-0004):
+    # under report-date-anchored linkage a bare `before_loss` filter with no
+    # window legitimately admits a C1 policy's far-prior, unrelated deductible
+    # decrease, which is what the exclude-C1 assertion above would otherwise
+    # be unable to distinguish from a defect.
+    days_idx = find_col(result.columns, "days_to_next_claim_loss") or find_col(
+        result.columns, "days", "claim"
+    )
+    if days_idx is not None:
+        bad_days = [v for v in col_values(result, days_idx) if v is not None and float(v) > 90]
+        if bad_days:
+            return _fail(f"Returned rows include days_to_next_claim_loss > 90: {bad_days[:5]}.")
+
     return _ok(f"All 30 S2 policies present, C1 excluded ({len(ids)} distinct policies returned).")
 
 
@@ -580,17 +593,25 @@ CONTRACTS: list[Contract] = [
         check_qc04,
     ),
     Contract(
-        "QC-05", "ranking", "Which policy fields change most frequently before claims?", None, check_qc05
+        "QC-05",
+        "ranking",
+        "Which material changes most often precede high-severity claims, within 60 days?",
+        None,
+        check_qc05,
     ),
     Contract(
         "QC-06",
         "ranking",
-        "Which material changes happen most frequently before claims above $25,000?",
+        "Which material changes happen most often, within 60 days, before claims above $25,000?",
         None,
         check_qc06,
     ),
     Contract(
-        "QC-07", "cohort", "Show policies where deductible decreased before a claim.", None, check_qc07
+        "QC-07",
+        "cohort",
+        "Show policies where deductible decreased within 90 days before a claim.",
+        None,
+        check_qc07,
     ),
     Contract(
         "QC-08",
@@ -618,7 +639,7 @@ CONTRACTS: list[Contract] = [
     Contract(
         "QC-13",
         "ranking+comparison",
-        "Are claims more frequent following specific types of policy changes?",
+        "Are claims more frequent, within 60 days, following specific types of material policy changes?",
         None,
         check_qc13,
     ),
