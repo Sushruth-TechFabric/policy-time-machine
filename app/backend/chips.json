@@ -1,0 +1,40 @@
+{
+  "investigation_start": [
+    "Show policies where coverage increased within 30 days before a claim.",
+    "Find policies with several material changes before a high-severity claim.",
+    "Which policy fields change most frequently before claims?",
+    "Compare policies with recent material changes against policies without.",
+    "Which customers have the highest number of policy changes?"
+  ],
+  "timeline_open": [
+    "What changed on policy P-18492 during the last year?",
+    "What changed before the latest claim on P-18492?",
+    "Find policies with histories similar to P-18492.",
+    "Compare policies with recent material changes against policies without."
+  ],
+  "similarity_view": [
+    "Find policies with histories similar to P-18492.",
+    "Show the material change counts and claim counts for policies similar to P-18492.",
+    "Which policies similar to P-18492 have a claim near the limit?",
+    "Which noteworthy patterns are most common among policies similar to P-18492?"
+  ],
+  "cohort_on_screen": [
+    "Show policies where deductible decreased before a claim.",
+    "Which material changes happen most frequently before claims above $25,000?",
+    "Which policies changed vehicles and addresses within 60 days?",
+    "What happened immediately before the largest claims?",
+    "Are claims more frequent following specific types of policy changes?"
+  ],
+  "pattern_view": [
+    "Which patterns are most common?",
+    "Show policies with nothing noteworthy.",
+    "Show unusual historical patterns worth investigating.",
+    "Which noteworthy patterns has policy P-18492 matched?"
+  ],
+  "aggregate_view": [
+    "Compare policies with recent material changes against policies without.",
+    "Which policy fields change most frequently before claims?",
+    "Are claims more frequent following specific types of policy changes?",
+    "Which material changes happen most frequently before claims above $25,000?"
+  ]
+}
