@@ -125,7 +125,15 @@ def _source(name: str) -> "pd.DataFrame":
 
 
 def _exists(name: str) -> bool:
-    return spark.catalog.tableExists(_qualified(name))
+    # spark.catalog.tableExists is not on the serverless Py4J allowlist
+    # (PY4J_BLOCKED_API); information_schema is plain SQL and always is.
+    return (
+        spark.sql(
+            f"SELECT 1 FROM {CATALOG}.information_schema.tables "
+            f"WHERE table_schema = '{SCHEMA}' AND table_name = '{name}' LIMIT 1"
+        ).count()
+        > 0
+    )
 
 
 _BUILT: dict[str, Any] | None = None
