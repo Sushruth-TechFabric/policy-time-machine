@@ -7,16 +7,16 @@
     "Which customers have the highest number of policy changes?"
   ],
   "timeline_open": [
-    "What changed on policy P-18492 during the last year?",
-    "What changed before the latest claim on P-18492?",
-    "Find policies with histories similar to P-18492.",
+    "What changed on policy P-10155 during the last year?",
+    "What changed before the latest claim on P-10155?",
+    "Find policies with histories similar to P-10155.",
     "Compare policies with recent material changes against policies without."
   ],
   "similarity_view": [
-    "Find policies with histories similar to P-18492.",
-    "Show the material change counts and claim counts for policies similar to P-18492.",
-    "Which policies similar to P-18492 have a claim near the limit?",
-    "Which noteworthy patterns are most common among policies similar to P-18492?"
+    "Find policies with histories similar to P-10155.",
+    "Show the material change counts and claim counts for policies similar to P-10155.",
+    "Which policies similar to P-10155 have a claim near the limit?",
+    "Which noteworthy patterns are most common among policies similar to P-10155?"
   ],
   "cohort_on_screen": [
     "Show policies where deductible decreased before a claim.",
@@ -29,7 +29,7 @@
     "Which patterns are most common?",
     "Show policies with nothing noteworthy.",
     "Show unusual historical patterns worth investigating.",
-    "Which noteworthy patterns has policy P-18492 matched?"
+    "Which noteworthy patterns has policy P-10155 matched?"
   ],
   "aggregate_view": [
     "Compare policies with recent material changes against policies without.",

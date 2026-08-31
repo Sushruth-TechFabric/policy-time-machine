@@ -19,3 +19,5 @@ generator/output/
 
 # Local scratch
 .DS_Store
+.gstack/
+data/
