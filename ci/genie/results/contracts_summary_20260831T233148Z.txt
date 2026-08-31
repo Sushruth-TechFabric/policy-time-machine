@@ -1,0 +1,24 @@
+Query Contracts Run — Policy Time Machine
+Timestamp: 20260831T233148Z
+Anchor date: 2026-08-31  Demo policy: P-10155
+
+QC-01  [cohort              ] 3/3  (green)
+QC-02  [cohort              ] 3/3  (green)
+QC-03  [cohort              ] 3/3  (green)
+QC-04  [cohort              ] 0/3  (deterministic-break)
+         run 1: Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...
+         run 2: Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...
+         run 3: Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...
+QC-05  [ranking             ] 3/3  (green)
+QC-06  [ranking             ] 3/3  (green)
+QC-07  [cohort              ] 3/3  (green)
+QC-08  [cohort              ] 3/3  (green)
+QC-09  [table-routed        ] 3/3  (green)
+QC-10  [comparison          ] 3/3  (green)
+QC-11  [table-routed        ] 3/3  (green)
+QC-12  [cohort              ] 3/3  (green)
+QC-13  [ranking+comparison  ] 3/3  (green)
+QC-14  [table-routed        ] 3/3  (green)
+QC-15  [cohort-multiturn    ] 3/3  (green)
+
+OVERALL: RED — see failures above

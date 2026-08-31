@@ -1,0 +1,159 @@
+[20260831T231447Z] Loading ground truth from warehouse SQL...
+[20260831T231508Z] Ground truth loaded. anchor_date=2026-08-31 demo_policy_id=P-10155
+
+[20260831T231508Z] === QC-01 (cohort) ===
+[20260831T231508Z]   run 1/3... PASS
+[20260831T231525Z]   run 2/3... PASS
+[20260831T231547Z]   run 3/3... PASS
+[20260831T231602Z] QC-01: 3/3 (green)
+
+[20260831T231602Z] === QC-02 (cohort) ===
+[20260831T231602Z]   run 1/3... PASS
+[20260831T231624Z]   run 2/3... PASS
+[20260831T231646Z]   run 3/3... PASS
+[20260831T231708Z] QC-02: 3/3 (green)
+
+[20260831T231708Z] === QC-03 (cohort) ===
+[20260831T231708Z]   run 1/3... PASS
+[20260831T231737Z]   run 2/3... PASS
+[20260831T231805Z]   run 3/3... PASS
+[20260831T231827Z] QC-03: 3/3 (green)
+
+[20260831T231827Z] === QC-04 (cohort) ===
+[20260831T231827Z]   run 1/3... FAIL
+[20260831T231841Z]     detail: Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...
+[20260831T231841Z]     question: Find policies with several material changes before a high-severity claim.
+[20260831T231841Z]     generated_sql: SELECT policy_id, next_claim_id, COUNT(*) AS material_change_count
+FROM workspace.ptm_gold.policy_change_event
+WHERE is_material = true
+  AND change_timing = 'before_loss'
+  AND next_claim_severity IN ('severe','catastrophic')
+GROUP BY policy_id, next_claim_id
+HAVING COUNT(*) > 1
+ORDER BY material_change_count DESC
+[20260831T231841Z]     description: You're looking for policies that had more than one material change before a claim that was classified as high-severity, either severe or catastrophic. The results show each policy along with the specific claim and the count of such material changes before that claim, ordered by the number of changes in descending order.
+[20260831T231841Z]     status: ok
+[20260831T231841Z]     row_count: 269
+[20260831T231841Z]     columns: ['policy_id', 'next_claim_id', 'material_change_count']
+[20260831T231844Z]   run 2/3... FAIL
+[20260831T231858Z]     detail: Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...
+[20260831T231858Z]     question: Find policies with several material changes before a high-severity claim.
+[20260831T231858Z]     generated_sql: SELECT policy_id, next_claim_id, COUNT(*) AS material_change_count
+FROM workspace.ptm_gold.policy_change_event
+WHERE is_material = true
+  AND change_timing = 'before_loss'
+  AND next_claim_severity IN ('severe','catastrophic')
+GROUP BY policy_id, next_claim_id
+HAVING COUNT(*) > 1
+ORDER BY material_change_count DESC
+[20260831T231858Z]     description: You want to see policies that had multiple material changes before a high-severity claim was reported, showing the number of such changes for each policy and claim combination.
+[20260831T231858Z]     status: ok
+[20260831T231858Z]     row_count: 269
+[20260831T231858Z]     columns: ['policy_id', 'next_claim_id', 'material_change_count']
+[20260831T231901Z]   run 3/3... FAIL
+[20260831T231920Z]     detail: Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...
+[20260831T231920Z]     question: Find policies with several material changes before a high-severity claim.
+[20260831T231920Z]     generated_sql: SELECT policy_id, next_claim_id, COUNT(*) AS material_change_count
+FROM workspace.ptm_gold.policy_change_event
+WHERE is_material = true
+  AND change_timing = 'before_loss'
+  AND next_claim_severity IN ('severe','catastrophic')
+GROUP BY policy_id, next_claim_id
+HAVING COUNT(*) > 1
+ORDER BY material_change_count DESC
+[20260831T231920Z]     description: You're looking for policies that had more than one material change before a claim that was classified as high-severity, meaning the claim was either severe or catastrophic. The results show each policy along with the specific claim and the count of such material changes before that claim, ordered by the number of changes in descending order.
+[20260831T231920Z]     status: ok
+[20260831T231920Z]     row_count: 269
+[20260831T231920Z]     columns: ['policy_id', 'next_claim_id', 'material_change_count']
+[20260831T231923Z] QC-04: 0/3 (deterministic-break)
+
+[20260831T231923Z] === QC-05 (ranking) ===
+[20260831T231923Z]   run 1/3... PASS
+[20260831T231940Z]   run 2/3... PASS
+[20260831T232003Z]   run 3/3... PASS
+[20260831T232020Z] QC-05: 3/3 (green)
+
+[20260831T232020Z] === QC-06 (ranking) ===
+[20260831T232020Z]   run 1/3... PASS
+[20260831T232042Z]   run 2/3... PASS
+[20260831T232104Z]   run 3/3... PASS
+[20260831T232126Z] QC-06: 3/3 (green)
+
+[20260831T232126Z] === QC-07 (cohort) ===
+[20260831T232126Z]   run 1/3... PASS
+[20260831T232149Z]   run 2/3... PASS
+[20260831T232217Z]   run 3/3... PASS
+[20260831T232239Z] QC-07: 3/3 (green)
+
+[20260831T232239Z] === QC-08 (cohort) ===
+[20260831T232239Z]   run 1/3... PASS
+[20260831T232255Z]   run 2/3... PASS
+[20260831T232312Z]   run 3/3... PASS
+[20260831T232327Z] QC-08: 3/3 (green)
+
+[20260831T232327Z] === QC-09 (table-routed) ===
+[20260831T232327Z]   run 1/3... PASS
+[20260831T232349Z]   run 2/3... PASS
+[20260831T232405Z]   run 3/3... PASS
+[20260831T232420Z] QC-09: 3/3 (green)
+
+[20260831T232420Z] === QC-10 (comparison) ===
+[20260831T232420Z]   run 1/3... PASS
+[20260831T232436Z]   run 2/3... PASS
+[20260831T232454Z]   run 3/3... PASS
+[20260831T232516Z] QC-10: 3/3 (green)
+
+[20260831T232516Z] === QC-11 (table-routed) ===
+[20260831T232516Z]   run 1/3... PASS
+[20260831T232537Z]   run 2/3... PASS
+[20260831T232559Z]   run 3/3... PASS
+[20260831T232620Z] QC-11: 3/3 (green)
+
+[20260831T232620Z] === QC-12 (cohort) ===
+[20260831T232620Z]   run 1/3... PASS
+[20260831T232642Z]   run 2/3... PASS
+[20260831T232702Z]   run 3/3... PASS
+[20260831T232725Z] QC-12: 3/3 (green)
+
+[20260831T232725Z] === QC-13 (ranking+comparison) ===
+[20260831T232725Z]   run 1/3... PASS
+[20260831T232747Z]   run 2/3... PASS
+[20260831T232809Z]   run 3/3... PASS
+[20260831T232831Z] QC-13: 3/3 (green)
+
+[20260831T232831Z] === QC-14 (table-routed) ===
+[20260831T232831Z]   run 1/3... PASS
+[20260831T232847Z]   run 2/3... PASS
+[20260831T232904Z]   run 3/3... PASS
+[20260831T232921Z] QC-14: 3/3 (green)
+
+[20260831T232921Z] === QC-15 (cohort-multiturn) ===
+[20260831T232921Z]   run 1/3... PASS
+[20260831T233012Z]   run 2/3... PASS
+[20260831T233056Z]   run 3/3... PASS
+[20260831T233148Z] QC-15: 3/3 (green)
+
+Query Contracts Run — Policy Time Machine
+Timestamp: 20260831T233148Z
+Anchor date: 2026-08-31  Demo policy: P-10155
+
+QC-01  [cohort              ] 3/3  (green)
+QC-02  [cohort              ] 3/3  (green)
+QC-03  [cohort              ] 3/3  (green)
+QC-04  [cohort              ] 0/3  (deterministic-break)
+         run 1: Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...
+         run 2: Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...
+         run 3: Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...
+QC-05  [ranking             ] 3/3  (green)
+QC-06  [ranking             ] 3/3  (green)
+QC-07  [cohort              ] 3/3  (green)
+QC-08  [cohort              ] 3/3  (green)
+QC-09  [table-routed        ] 3/3  (green)
+QC-10  [comparison          ] 3/3  (green)
+QC-11  [table-routed        ] 3/3  (green)
+QC-12  [cohort              ] 3/3  (green)
+QC-13  [ranking+comparison  ] 3/3  (green)
+QC-14  [table-routed        ] 3/3  (green)
+QC-15  [cohort-multiturn    ] 3/3  (green)
+
+OVERALL: RED — see failures above

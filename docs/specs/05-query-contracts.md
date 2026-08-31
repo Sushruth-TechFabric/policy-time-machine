@@ -38,8 +38,10 @@ Three runs. Three passes is green; anything else is red, and there is no retry. 
 
 This is the contract that guards the critical instruction in ADR-0004. If Genie writes a bare threshold filter, the first negative assertion fails loudly rather than the cohort being quietly wrong.
 
-### QC-04 — "Find policies with several material changes before a high-severity claim."
+### QC-04 — "Find policies with several material changes in the 90 days before a high-severity claim."
 **Cohort.** Must include all 30 S4 policies. Must exclude C1 and C2. **Negative assertion:** every returned claim severity is `severe` or `catastrophic`.
+
+The window is load-bearing for the same reason as QC-07's: report-date linkage (ADR-0004) legitimately attaches material changes made 255–977 days earlier to a policy's eventual claim, so the unwindowed "must exclude C1" is unsatisfiable by any correct SQL. Within 90 days, no C1 policy has a single qualifying change.
 
 ### QC-05 — "Which material changes most often precede high-severity claims, within 60 days?"
 **Ranking.** Returned category ordering must match the declared ordering: coverage, deductible, vehicle, status, address. Magnitudes unasserted.

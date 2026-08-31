@@ -1,0 +1,1000 @@
+{
+  "timestamp": "20260831T233148Z",
+  "anchor_date": "2026-08-31",
+  "demo_policy_id": "P-10155",
+  "overall_pass": false,
+  "contracts": [
+    {
+      "id": "QC-01",
+      "type": "cohort",
+      "question": "What changed on policy {demo} during the last year?",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "All four planted timeline events present, nothing before the window, ordered by date.",
+          "diagnostics": {
+            "question": "What changed on policy P-10155 during the last year?",
+            "generated_sql": "SELECT `event_date`, `event_type`, `event_category`, `display_label`,\n       `old_value`, `new_value`, `amount`\nFROM `workspace`.`ptm_gold`.`policy_timeline_event`\nWHERE `policy_id` = 'P-10155'\n  AND `event_date` >= CURRENT_DATE - INTERVAL 1 YEAR\nORDER BY `event_date`",
+            "description": "You want to see all events that changed on policy P-10155 during the last year, including the date, type, category, and details of the changes.",
+            "status": "ok",
+            "row_count": 11,
+            "columns": [
+              "event_date",
+              "event_type",
+              "event_category",
+              "display_label",
+              "old_value",
+              "new_value",
+              "amount"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "All four planted timeline events present, nothing before the window, ordered by date.",
+          "diagnostics": {
+            "question": "What changed on policy P-10155 during the last year?",
+            "generated_sql": "SELECT `event_date`, `event_type`, `event_category`, `display_label`, `old_value`, `new_value`, `amount`\nFROM `workspace`.`ptm_gold`.`policy_timeline_event`\nWHERE `policy_id` = 'P-10155'\n  AND `event_date` >= CURRENT_DATE - INTERVAL 1 YEAR\nORDER BY `event_date`",
+            "description": "You want to see all events that changed or affected policy P-10155 during the last year, including the date, type, category, description, and old and new values if applicable.",
+            "status": "ok",
+            "row_count": 11,
+            "columns": [
+              "event_date",
+              "event_type",
+              "event_category",
+              "display_label",
+              "old_value",
+              "new_value",
+              "amount"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "All four planted timeline events present, nothing before the window, ordered by date.",
+          "diagnostics": {
+            "question": "What changed on policy P-10155 during the last year?",
+            "generated_sql": "SELECT `event_date`, `event_type`, `event_category`, `display_label`,\n       `old_value`, `new_value`, `amount`\nFROM `workspace`.`ptm_gold`.`policy_timeline_event`\nWHERE `policy_id` = 'P-10155'\n  AND `event_date` >= CURRENT_DATE - INTERVAL 1 YEAR\nORDER BY `event_date`",
+            "description": "You want to see all the events that changed on policy P-10155 during the last year, including the date, type, category, and details of each change.",
+            "status": "ok",
+            "row_count": 11,
+            "columns": [
+              "event_date",
+              "event_type",
+              "event_category",
+              "display_label",
+              "old_value",
+              "new_value",
+              "amount"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-02",
+      "type": "cohort",
+      "question": "What changed before the latest claim on {demo}?",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "All three planted material changes present, nothing after the loss date.",
+          "diagnostics": {
+            "question": "What changed before the latest claim on P-10155?",
+            "generated_sql": "WITH latest_claim AS (\n  SELECT claim_id\n  FROM workspace.ptm_gold.claim_event\n  WHERE policy_id = 'P-10155'\n    AND loss_date IS NOT NULL\n  ORDER BY loss_date DESC\n  LIMIT 1\n)\nSELECT pce.policy_id, pce.change_date, pce.change_category, pce.days_to_next_claim_loss\nFROM workspace.ptm_gold.policy_change_event pce\nJOIN latest_claim lc ON pce.next_claim_id = lc.claim_id\nWHERE pce.policy_id = 'P-10155'\n  AND pce.is_material = true\n  AND pce.change_timing = 'before_loss'\n  AND pce.change_date IS NOT NULL\nORDER BY pce.change_date DESC",
+            "description": "You want to see the material changes made on policy P-10155 before the most recent claim's loss date, ordered by the change date from newest to oldest.",
+            "status": "ok",
+            "row_count": 3,
+            "columns": [
+              "policy_id",
+              "change_date",
+              "change_category",
+              "days_to_next_claim_loss"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "All three planted material changes present, nothing after the loss date.",
+          "diagnostics": {
+            "question": "What changed before the latest claim on P-10155?",
+            "generated_sql": "WITH latest_claim AS (\n  SELECT claim_id\n  FROM workspace.ptm_gold.claim_event\n  WHERE policy_id = 'P-10155'\n    AND loss_date IS NOT NULL\n  ORDER BY loss_date DESC\n  LIMIT 1\n)\nSELECT policy_change_event.change_date, policy_change_event.change_category, policy_change_event.old_value, policy_change_event.new_value, policy_change_event.days_to_next_claim_loss\nFROM workspace.ptm_gold.policy_change_event\nJOIN latest_claim ON policy_change_event.next_claim_id = latest_claim.claim_id\nWHERE policy_change_event.is_material = true\n  AND policy_change_event.change_timing = 'before_loss'\nORDER BY policy_change_event.change_date DESC",
+            "description": "You want to see the material changes made on policy P-10155 before the most recent claim, including the change date, category, old and new values, and how many days before the claim loss the change happened.",
+            "status": "ok",
+            "row_count": 3,
+            "columns": [
+              "change_date",
+              "change_category",
+              "old_value",
+              "new_value",
+              "days_to_next_claim_loss"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "All three planted material changes present, nothing after the loss date.",
+          "diagnostics": {
+            "question": "What changed before the latest claim on P-10155?",
+            "generated_sql": "WITH latest_claim AS (\n  SELECT claim_id\n  FROM workspace.ptm_gold.claim_event\n  WHERE policy_id = 'P-10155'\n    AND loss_date IS NOT NULL\n  ORDER BY loss_date DESC\n  LIMIT 1\n)\nSELECT pce.change_date, pce.change_category, pce.days_to_next_claim_loss, pce.old_value, pce.new_value\nFROM workspace.ptm_gold.policy_change_event pce\nJOIN latest_claim lc ON pce.next_claim_id = lc.claim_id\nWHERE pce.policy_id = 'P-10155'\n  AND pce.is_material = true\n  AND pce.change_timing = 'before_loss'\n  AND pce.change_date IS NOT NULL\nORDER BY pce.change_date DESC",
+            "description": "You want to see the material changes made on policy P-10155 that happened before the most recent claim's loss date, including details like change date, category, and old and new values, ordered by the most recent change first.",
+            "status": "ok",
+            "row_count": 3,
+            "columns": [
+              "change_date",
+              "change_category",
+              "days_to_next_claim_loss",
+              "old_value",
+              "new_value"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-03",
+      "type": "cohort",
+      "question": "Show policies where coverage increased within 30 days before a claim.",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "All 40 S1 policies present, C1/C2 excluded, trap set excluded (108 distinct policies returned).",
+          "diagnostics": {
+            "question": "Show policies where coverage increased within 30 days before a claim.",
+            "generated_sql": "SELECT policy_id, change_date, coverage_line, old_value_num, new_value_num, days_to_next_claim_loss, next_claim_amount, next_claim_severity\nFROM workspace.ptm_gold.policy_change_event\nWHERE change_category = 'coverage'\n  AND change_direction = 'increase'\n  AND change_timing = 'before_loss'\n  AND days_to_next_claim_loss <= 30\nORDER BY days_to_next_claim_loss",
+            "description": "You want to see policies where the coverage was increased within the 30 days leading up to a claim being reported.",
+            "status": "ok",
+            "row_count": 109,
+            "columns": [
+              "policy_id",
+              "change_date",
+              "coverage_line",
+              "old_value_num",
+              "new_value_num",
+              "days_to_next_claim_loss",
+              "next_claim_amount",
+              "next_claim_severity"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "All 40 S1 policies present, C1/C2 excluded, trap set excluded (108 distinct policies returned).",
+          "diagnostics": {
+            "question": "Show policies where coverage increased within 30 days before a claim.",
+            "generated_sql": "SELECT policy_id, change_date, coverage_line, old_value_num, new_value_num, days_to_next_claim_loss, next_claim_amount, next_claim_severity\nFROM workspace.ptm_gold.policy_change_event\nWHERE change_category = 'coverage'\n  AND change_direction = 'increase'\n  AND change_timing = 'before_loss'\n  AND days_to_next_claim_loss <= 30\nORDER BY days_to_next_claim_loss",
+            "description": "You want to see policies where the coverage was increased within 30 days before a claim was reported.",
+            "status": "ok",
+            "row_count": 109,
+            "columns": [
+              "policy_id",
+              "change_date",
+              "coverage_line",
+              "old_value_num",
+              "new_value_num",
+              "days_to_next_claim_loss",
+              "next_claim_amount",
+              "next_claim_severity"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "All 40 S1 policies present, C1/C2 excluded, trap set excluded (108 distinct policies returned).",
+          "diagnostics": {
+            "question": "Show policies where coverage increased within 30 days before a claim.",
+            "generated_sql": "SELECT policy_id, change_date, coverage_line, old_value_num, new_value_num,\n       days_to_next_claim_loss, next_claim_amount, next_claim_severity\nFROM workspace.ptm_gold.policy_change_event\nWHERE change_category = 'coverage'\n  AND change_direction = 'increase'\n  AND change_timing = 'before_loss'\n  AND days_to_next_claim_loss <= 30\nORDER BY days_to_next_claim_loss",
+            "description": "You want to see policies where the coverage was increased within 30 days before a claim was reported.",
+            "status": "ok",
+            "row_count": 109,
+            "columns": [
+              "policy_id",
+              "change_date",
+              "coverage_line",
+              "old_value_num",
+              "new_value_num",
+              "days_to_next_claim_loss",
+              "next_claim_amount",
+              "next_claim_severity"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-04",
+      "type": "cohort",
+      "question": "Find policies with several material changes before a high-severity claim.",
+      "turns": null,
+      "pass_count": 0,
+      "of": 3,
+      "severity": "deterministic-break",
+      "runs": [
+        {
+          "run": 1,
+          "passed": false,
+          "detail": "Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...",
+          "diagnostics": {
+            "question": "Find policies with several material changes before a high-severity claim.",
+            "generated_sql": "SELECT policy_id, next_claim_id, COUNT(*) AS material_change_count\nFROM workspace.ptm_gold.policy_change_event\nWHERE is_material = true\n  AND change_timing = 'before_loss'\n  AND next_claim_severity IN ('severe','catastrophic')\nGROUP BY policy_id, next_claim_id\nHAVING COUNT(*) > 1\nORDER BY material_change_count DESC",
+            "description": "You're looking for policies that had more than one material change before a claim that was classified as high-severity, either severe or catastrophic. The results show each policy along with the specific claim and the count of such material changes before that claim, ordered by the number of changes in descending order.",
+            "status": "ok",
+            "row_count": 269,
+            "columns": [
+              "policy_id",
+              "next_claim_id",
+              "material_change_count"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": false,
+          "detail": "Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...",
+          "diagnostics": {
+            "question": "Find policies with several material changes before a high-severity claim.",
+            "generated_sql": "SELECT policy_id, next_claim_id, COUNT(*) AS material_change_count\nFROM workspace.ptm_gold.policy_change_event\nWHERE is_material = true\n  AND change_timing = 'before_loss'\n  AND next_claim_severity IN ('severe','catastrophic')\nGROUP BY policy_id, next_claim_id\nHAVING COUNT(*) > 1\nORDER BY material_change_count DESC",
+            "description": "You want to see policies that had multiple material changes before a high-severity claim was reported, showing the number of such changes for each policy and claim combination.",
+            "status": "ok",
+            "row_count": 269,
+            "columns": [
+              "policy_id",
+              "next_claim_id",
+              "material_change_count"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": false,
+          "detail": "Cohort wrongly includes C1/C2 control policies: ['P-10491', 'P-10507', 'P-10975', 'P-12684', 'P-14402']...",
+          "diagnostics": {
+            "question": "Find policies with several material changes before a high-severity claim.",
+            "generated_sql": "SELECT policy_id, next_claim_id, COUNT(*) AS material_change_count\nFROM workspace.ptm_gold.policy_change_event\nWHERE is_material = true\n  AND change_timing = 'before_loss'\n  AND next_claim_severity IN ('severe','catastrophic')\nGROUP BY policy_id, next_claim_id\nHAVING COUNT(*) > 1\nORDER BY material_change_count DESC",
+            "description": "You're looking for policies that had more than one material change before a claim that was classified as high-severity, meaning the claim was either severe or catastrophic. The results show each policy along with the specific claim and the count of such material changes before that claim, ordered by the number of changes in descending order.",
+            "status": "ok",
+            "row_count": 269,
+            "columns": [
+              "policy_id",
+              "next_claim_id",
+              "material_change_count"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-05",
+      "type": "ranking",
+      "question": "Which material changes most often precede high-severity claims, within 60 days?",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "Returned category order ['coverage', 'deductible', 'vehicle', 'status', 'address'] matches declared ordering.",
+          "diagnostics": {
+            "question": "Which material changes most often precede high-severity claims, within 60 days?",
+            "generated_sql": "SELECT `change_category`, COUNT(*) AS change_count, COUNT(DISTINCT `next_claim_id`) AS claim_count FROM `workspace`.`ptm_gold`.`policy_change_event` WHERE `is_material` = true AND `change_timing` = 'before_loss' AND `days_to_next_claim_loss` <= 60 AND `next_claim_severity` IN ('severe','catastrophic') GROUP BY `change_category` ORDER BY claim_count DESC",
+            "description": "You want to see which types of material changes happen most frequently before high-severity claims within 60 days.",
+            "status": "ok",
+            "row_count": 5,
+            "columns": [
+              "change_category",
+              "change_count",
+              "claim_count"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "Returned category order ['coverage', 'deductible', 'vehicle', 'status', 'address'] matches declared ordering.",
+          "diagnostics": {
+            "question": "Which material changes most often precede high-severity claims, within 60 days?",
+            "generated_sql": "SELECT `change_category`, COUNT(*) AS change_count, COUNT(DISTINCT `next_claim_id`) AS claim_count FROM `workspace`.`ptm_gold`.`policy_change_event` WHERE `is_material` = true AND `change_timing` = 'before_loss' AND `days_to_next_claim_loss` <= 60 AND `next_claim_severity` IN ('severe','catastrophic') GROUP BY `change_category` ORDER BY claim_count DESC",
+            "description": "You want to see which types of material changes happen most frequently before high-severity claims within 60 days.",
+            "status": "ok",
+            "row_count": 5,
+            "columns": [
+              "change_category",
+              "change_count",
+              "claim_count"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "Returned category order ['coverage', 'deductible', 'vehicle', 'status', 'address'] matches declared ordering.",
+          "diagnostics": {
+            "question": "Which material changes most often precede high-severity claims, within 60 days?",
+            "generated_sql": "SELECT `change_category`, COUNT(*) AS change_count, COUNT(DISTINCT `next_claim_id`) AS claim_count\nFROM `workspace`.`ptm_gold`.`policy_change_event`\nWHERE `is_material` = true\n  AND `change_timing` = 'before_loss'\n  AND `days_to_next_claim_loss` <= 60\n  AND `next_claim_severity` IN ('severe','catastrophic')\nGROUP BY `change_category`\nORDER BY claim_count DESC",
+            "description": "You want to see which types of material changes happen most frequently before high-severity claims within a 60-day window.",
+            "status": "ok",
+            "row_count": 5,
+            "columns": [
+              "change_category",
+              "change_count",
+              "claim_count"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-06",
+      "type": "ranking",
+      "question": "Which material changes happen most often, within 60 days, before claims above $25,000?",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "Returned category order ['coverage', 'deductible', 'vehicle', 'status', 'address'] matches declared ordering. No claim amount at or below $25,000.",
+          "diagnostics": {
+            "question": "Which material changes happen most often, within 60 days, before claims above $25,000?",
+            "generated_sql": "SELECT `change_category`, COUNT(*) AS change_count, COUNT(DISTINCT `next_claim_id`) AS claim_count\nFROM `workspace`.`ptm_gold`.`policy_change_event`\nWHERE `is_material` = true\n  AND `change_timing` = 'before_loss'\n  AND `days_to_next_claim_loss` <= 60\n  AND `next_claim_amount` > 25000\nGROUP BY `change_category`\nORDER BY claim_count DESC",
+            "description": "You're looking to find out which types of material changes occur most frequently within 60 days before claims that have a settled amount greater than $25,000. The results are grouped by the category of change and show both the total number of such changes and the number of unique claims associated with each change category, ordered by the number of claims.",
+            "status": "ok",
+            "row_count": 5,
+            "columns": [
+              "change_category",
+              "change_count",
+              "claim_count"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "Returned category order ['coverage', 'deductible', 'vehicle', 'status', 'address'] matches declared ordering. No claim amount at or below $25,000.",
+          "diagnostics": {
+            "question": "Which material changes happen most often, within 60 days, before claims above $25,000?",
+            "generated_sql": "SELECT change_category, COUNT(*) AS change_count, COUNT(DISTINCT next_claim_id) AS claim_count FROM workspace.ptm_gold.policy_change_event WHERE is_material = true AND change_timing = 'before_loss' AND days_to_next_claim_loss <= 60 AND next_claim_amount > 25000 GROUP BY change_category ORDER BY claim_count DESC",
+            "description": "You're looking to find out which types of material changes occur most frequently within 60 days before claims that have a settled amount greater than $25,000. The results are grouped by the category of the change, showing both the total number of such changes and the number of unique claims associated with each change category, ordered by the number of claims.",
+            "status": "ok",
+            "row_count": 5,
+            "columns": [
+              "change_category",
+              "change_count",
+              "claim_count"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "Returned category order ['coverage', 'deductible', 'vehicle', 'status', 'address'] matches declared ordering. No claim amount at or below $25,000.",
+          "diagnostics": {
+            "question": "Which material changes happen most often, within 60 days, before claims above $25,000?",
+            "generated_sql": "SELECT `change_category`, COUNT(*) AS change_count, COUNT(DISTINCT `next_claim_id`) AS claim_count FROM `workspace`.`ptm_gold`.`policy_change_event` WHERE `is_material` = true AND `change_timing` = 'before_loss' AND `days_to_next_claim_loss` <= 60 AND `next_claim_amount` > 25000 GROUP BY `change_category` ORDER BY claim_count DESC",
+            "description": "You're looking to find out which types of material changes occur most frequently within 60 days before claims that have a settled amount greater than $25,000. The results are grouped by the category of the change, showing both the total number of such changes and the number of unique claims associated with each change category, ordered by the number of claims.",
+            "status": "ok",
+            "row_count": 5,
+            "columns": [
+              "change_category",
+              "change_count",
+              "claim_count"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-07",
+      "type": "cohort",
+      "question": "Show policies where deductible decreased within 90 days before a claim.",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "All 30 S2 policies present, C1 excluded (99 distinct policies returned).",
+          "diagnostics": {
+            "question": "Show policies where deductible decreased within 90 days before a claim.",
+            "generated_sql": "SELECT policy_id, change_date, coverage_line, old_value_num, new_value_num, days_to_next_claim_loss, next_claim_amount, next_claim_severity\nFROM `workspace`.`ptm_gold`.`policy_change_event`\nWHERE change_category = 'deductible'\n  AND change_direction = 'decrease'\n  AND change_timing = 'before_loss'\n  AND days_to_next_claim_loss <= 90\nORDER BY days_to_next_claim_loss",
+            "description": "You want to see policies where the deductible amount was decreased within the 90 days before a claim was reported.",
+            "status": "ok",
+            "row_count": 129,
+            "columns": [
+              "policy_id",
+              "change_date",
+              "coverage_line",
+              "old_value_num",
+              "new_value_num",
+              "days_to_next_claim_loss",
+              "next_claim_amount",
+              "next_claim_severity"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "All 30 S2 policies present, C1 excluded (99 distinct policies returned).",
+          "diagnostics": {
+            "question": "Show policies where deductible decreased within 90 days before a claim.",
+            "generated_sql": "SELECT policy_id, change_date, coverage_line, old_value_num, new_value_num, days_to_next_claim_loss, next_claim_amount, next_claim_severity\nFROM workspace.ptm_gold.policy_change_event\nWHERE change_category = 'deductible'\n  AND change_direction = 'decrease'\n  AND change_timing = 'before_loss'\n  AND days_to_next_claim_loss <= 90\nORDER BY days_to_next_claim_loss",
+            "description": "You want to see policies where the deductible amount was decreased within the 90 days leading up to a claim being reported. The results include the policy ID, the date of the deductible change, the coverage line affected, the old and new deductible amounts, how many days before the claim loss the change happened, and details about the claim such as its amount and severity. The list is ordered by how close the deductible change was to the claim loss date.",
+            "status": "ok",
+            "row_count": 129,
+            "columns": [
+              "policy_id",
+              "change_date",
+              "coverage_line",
+              "old_value_num",
+              "new_value_num",
+              "days_to_next_claim_loss",
+              "next_claim_amount",
+              "next_claim_severity"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "All 30 S2 policies present, C1 excluded (99 distinct policies returned).",
+          "diagnostics": {
+            "question": "Show policies where deductible decreased within 90 days before a claim.",
+            "generated_sql": "SELECT policy_id, change_date, coverage_line, old_value_num, new_value_num, days_to_next_claim_loss, next_claim_amount, next_claim_severity FROM workspace.ptm_gold.policy_change_event WHERE change_category = 'deductible' AND change_direction = 'decrease' AND change_timing = 'before_loss' AND days_to_next_claim_loss <= 90 ORDER BY days_to_next_claim_loss",
+            "description": "You want to see policies where the deductible amount was decreased within the 90 days before a claim was reported. The results include the policy ID, the date of the deductible change, the coverage line affected, the old and new deductible amounts, the number of days from the change to the claim loss date, and details about the claim such as its settled amount and severity.",
+            "status": "ok",
+            "row_count": 129,
+            "columns": [
+              "policy_id",
+              "change_date",
+              "coverage_line",
+              "old_value_num",
+              "new_value_num",
+              "days_to_next_claim_loss",
+              "next_claim_amount",
+              "next_claim_severity"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-08",
+      "type": "cohort",
+      "question": "Which policies changed vehicles and addresses within 60 days?",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "All 35 S5 policies present (475 distinct policies returned).",
+          "diagnostics": {
+            "question": "Which policies changed vehicles and addresses within 60 days?",
+            "generated_sql": "SELECT `policy_id`, `change_date`, `nearest_address_change_offset_days`\nFROM `workspace`.`ptm_gold`.`policy_change_event`\nWHERE `change_category` = 'vehicle'\n  AND ABS(`nearest_address_change_offset_days`) <= 60",
+            "description": "You want to see policies where vehicle changes happened within 60 days of an address change.",
+            "status": "ok",
+            "row_count": 569,
+            "columns": [
+              "policy_id",
+              "change_date",
+              "nearest_address_change_offset_days"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "All 35 S5 policies present (475 distinct policies returned).",
+          "diagnostics": {
+            "question": "Which policies changed vehicles and addresses within 60 days?",
+            "generated_sql": "SELECT `policy_id`, `change_date`, `nearest_address_change_offset_days`\nFROM `workspace`.`ptm_gold`.`policy_change_event`\nWHERE `change_category` = 'vehicle'\n  AND ABS(`nearest_address_change_offset_days`) <= 60",
+            "description": "You want to see policies where vehicle changes happened within 60 days of an address change.",
+            "status": "ok",
+            "row_count": 569,
+            "columns": [
+              "policy_id",
+              "change_date",
+              "nearest_address_change_offset_days"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "All 35 S5 policies present (475 distinct policies returned).",
+          "diagnostics": {
+            "question": "Which policies changed vehicles and addresses within 60 days?",
+            "generated_sql": "SELECT `policy_id`, `change_date`, `nearest_address_change_offset_days`\nFROM `workspace`.`ptm_gold`.`policy_change_event`\nWHERE `change_category` = 'vehicle'\n  AND `nearest_address_change_offset_days` IS NOT NULL\n  AND ABS(`nearest_address_change_offset_days`) <= 60",
+            "description": "You want to see policies where a vehicle change happened and an address change occurred within 60 days of that vehicle change.",
+            "status": "ok",
+            "row_count": 569,
+            "columns": [
+              "policy_id",
+              "change_date",
+              "nearest_address_change_offset_days"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-09",
+      "type": "table-routed",
+      "question": "Which customers have the highest number of policy changes?",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "Top-10 customers by material_change_count match policy_profile exactly, in order.",
+          "diagnostics": {
+            "question": "Which customers have the highest number of policy changes?",
+            "generated_sql": "SELECT customer_id, SUM(material_change_count) AS material_change_count\nFROM workspace.ptm_gold.policy_profile\nGROUP BY customer_id\nORDER BY material_change_count DESC, customer_id ASC\nLIMIT 10",
+            "description": "You want to see the top 10 customers ranked by the total number of material policy changes they have made.",
+            "status": "ok",
+            "row_count": 10,
+            "columns": [
+              "customer_id",
+              "material_change_count"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "Top-10 customers by material_change_count match policy_profile exactly, in order.",
+          "diagnostics": {
+            "question": "Which customers have the highest number of policy changes?",
+            "generated_sql": "SELECT customer_id, SUM(material_change_count) AS material_change_count\nFROM workspace.ptm_gold.policy_profile\nWHERE customer_id IS NOT NULL AND material_change_count IS NOT NULL\nGROUP BY customer_id\nORDER BY material_change_count DESC, customer_id ASC\nLIMIT 10",
+            "description": "You want to see the top 10 customers ranked by the total number of material policy changes they have across all their policies.",
+            "status": "ok",
+            "row_count": 10,
+            "columns": [
+              "customer_id",
+              "material_change_count"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "Top-10 customers by material_change_count match policy_profile exactly, in order.",
+          "diagnostics": {
+            "question": "Which customers have the highest number of policy changes?",
+            "generated_sql": "SELECT customer_id, SUM(material_change_count) AS material_change_count\nFROM workspace.ptm_gold.policy_profile\nWHERE customer_id IS NOT NULL AND material_change_count IS NOT NULL\nGROUP BY customer_id\nORDER BY material_change_count DESC, customer_id ASC\nLIMIT 10",
+            "description": "You want to see the top 10 customers ranked by the total number of material policy changes they have had.",
+            "status": "ok",
+            "row_count": 10,
+            "columns": [
+              "customer_id",
+              "material_change_count"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-10",
+      "type": "comparison",
+      "question": "Compare policies with recent material changes against policies without.",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "Two distinct groups returned, both with label/rate/n; n values ['2764', '4309'] clear the floor.",
+          "diagnostics": {
+            "question": "Compare policies with recent material changes against policies without.",
+            "generated_sql": "SELECT CASE WHEN last_material_change_date >= DATE_SUB(CURRENT_DATE(), 90) THEN 'recent_changer' ELSE 'not_recent_changer' END AS group_label, AVG(claims_per_year) AS avg_claims_per_year, COUNT(*) AS n FROM `workspace`.`ptm_gold`.`policy_profile` WHERE last_material_change_date IS NOT NULL GROUP BY group_label",
+            "description": "You want to compare policies that have had material changes in the last 90 days with those that have not, showing the average number of claims per year and the count of policies in each group.",
+            "status": "ok",
+            "row_count": 2,
+            "columns": [
+              "group_label",
+              "avg_claims_per_year",
+              "n"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "Two distinct groups returned, both with label/rate/n; n values ['2764', '4309'] clear the floor.",
+          "diagnostics": {
+            "question": "Compare policies with recent material changes against policies without.",
+            "generated_sql": "SELECT CASE WHEN last_material_change_date >= DATE_SUB(CURRENT_DATE(), 90) THEN 'recent_material_change' ELSE 'no_recent_material_change' END AS group_label, AVG(claims_per_year) AS avg_claims_per_year, COUNT(*) AS n FROM `workspace`.`ptm_gold`.`policy_profile` WHERE last_material_change_date IS NOT NULL GROUP BY group_label",
+            "description": "You want to compare policies that have had material changes in the last 90 days with those that have not had recent material changes. The comparison focuses on the average number of claims filed per year for each group, along with the count of policies in each group.",
+            "status": "ok",
+            "row_count": 2,
+            "columns": [
+              "group_label",
+              "avg_claims_per_year",
+              "n"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "Two distinct groups returned, both with label/rate/n; n values ['2764', '4309'] clear the floor.",
+          "diagnostics": {
+            "question": "Compare policies with recent material changes against policies without.",
+            "generated_sql": "SELECT CASE WHEN policy_profile.last_material_change_date >= DATEADD(DAY, -90, CURRENT_DATE) THEN 'recent_material_change' ELSE 'no_recent_material_change' END AS group_label, AVG(policy_profile.claims_per_year) AS avg_claims_per_year, COUNT(*) AS n\nFROM workspace.ptm_gold.policy_profile\nWHERE policy_profile.last_material_change_date IS NOT NULL AND policy_profile.claims_per_year IS NOT NULL\nGROUP BY group_label",
+            "description": "You want to compare policies that have had material changes in the last 90 days with those that have not had recent material changes, showing the average number of claims per year and the count of policies in each group.",
+            "status": "ok",
+            "row_count": 2,
+            "columns": [
+              "group_label",
+              "avg_claims_per_year",
+              "n"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-11",
+      "type": "table-routed",
+      "question": "Find policies with histories similar to {demo}.",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "All 20 neighbours match policy_similarity exactly, in rank order.",
+          "diagnostics": {
+            "question": "Find policies with histories similar to P-10155.",
+            "generated_sql": "SELECT s.rank, s.similar_policy_id, s.similarity_score, s.top_reasons,\n       p.material_change_count, p.claim_count, p.noteworthy_pattern_count\nFROM `workspace`.`ptm_gold`.`policy_similarity` s\nJOIN `workspace`.`ptm_gold`.`policy_profile` p ON p.policy_id = s.similar_policy_id\nWHERE s.policy_id = 'P-10155'\nORDER BY s.rank",
+            "description": "You want to see the top 20 policies that have histories most similar to policy P-10155, ranked by similarity. For each similar policy, you want to know its rank, similarity score, main reasons for similarity, and some key statistics like the number of material changes, claims, and noteworthy patterns.",
+            "status": "ok",
+            "row_count": 20,
+            "columns": [
+              "rank",
+              "similar_policy_id",
+              "similarity_score",
+              "top_reasons",
+              "material_change_count",
+              "claim_count",
+              "noteworthy_pattern_count"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "All 20 neighbours match policy_similarity exactly, in rank order.",
+          "diagnostics": {
+            "question": "Find policies with histories similar to P-10155.",
+            "generated_sql": "SELECT s.rank, s.similar_policy_id, s.similarity_score, s.top_reasons,\n       p.material_change_count, p.claim_count, p.noteworthy_pattern_count\nFROM `workspace`.`ptm_gold`.`policy_similarity` s\nJOIN `workspace`.`ptm_gold`.`policy_profile` p ON p.policy_id = s.similar_policy_id\nWHERE s.policy_id = 'P-10155'\n  AND s.rank IS NOT NULL\n  AND s.similar_policy_id IS NOT NULL\nORDER BY s.rank",
+            "description": "You want to see the top 20 policies that have histories most similar to the policy with ID 'P-10155'. For each similar policy, you want to know its rank in similarity, the similarity score, the main reasons for similarity, and some key statistics about the policy such as the number of material changes, the number of claims, and the count of noteworthy patterns.",
+            "status": "ok",
+            "row_count": 20,
+            "columns": [
+              "rank",
+              "similar_policy_id",
+              "similarity_score",
+              "top_reasons",
+              "material_change_count",
+              "claim_count",
+              "noteworthy_pattern_count"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "All 20 neighbours match policy_similarity exactly, in rank order.",
+          "diagnostics": {
+            "question": "Find policies with histories similar to P-10155.",
+            "generated_sql": "SELECT s.rank, s.similar_policy_id, s.similarity_score, s.top_reasons,\n       p.material_change_count, p.claim_count, p.noteworthy_pattern_count\nFROM `workspace`.`ptm_gold`.`policy_similarity` s\nJOIN `workspace`.`ptm_gold`.`policy_profile` p ON p.policy_id = s.similar_policy_id\nWHERE s.policy_id = 'P-10155'\nORDER BY s.rank",
+            "description": "You want to see the top 20 policies that have histories most similar to policy P-10155, ranked by similarity. For each similar policy, you want to know its rank, similarity score, main reasons for similarity, and key profile details including the number of material changes, claims, and noteworthy patterns.",
+            "status": "ok",
+            "row_count": 20,
+            "columns": [
+              "rank",
+              "similar_policy_id",
+              "similarity_score",
+              "top_reasons",
+              "material_change_count",
+              "claim_count",
+              "noteworthy_pattern_count"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-12",
+      "type": "cohort",
+      "question": "What happened immediately before the largest claims?",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "Result includes at least one C1 policy with no preceding change: ['P-21601', 'P-29433', 'P-30210', 'P-32773', 'P-37178', 'P-40432'].",
+          "diagnostics": {
+            "question": "What happened immediately before the largest claims?",
+            "generated_sql": "WITH largest_claims AS (\n  SELECT claim_id, policy_id, settled_amount, severity_band\n  FROM workspace.ptm_gold.claim_event\n  ORDER BY settled_amount DESC\n  LIMIT 20\n),\npreceding_change AS (\n  SELECT next_claim_id AS claim_id, change_date, change_category, days_to_next_claim_loss,\n         ROW_NUMBER() OVER (PARTITION BY next_claim_id ORDER BY days_to_next_claim_loss ASC) AS rn\n  FROM workspace.ptm_gold.policy_change_event\n  WHERE is_material = true\n    AND change_timing = 'before_loss'\n)\nSELECT lc.claim_id, lc.policy_id, lc.settled_amount, lc.severity_band,\n       pc.change_date, pc.change_category, pc.days_to_next_claim_loss\nFROM largest_claims lc\nLEFT JOIN preceding_change pc\n  ON pc.claim_id = lc.claim_id AND pc.rn = 1\nORDER BY lc.settled_amount DESC",
+            "description": "You want to see the 20 largest claims by settled amount and the material policy change that happened immediately before each of these claims, if any.",
+            "status": "ok",
+            "row_count": 20,
+            "columns": [
+              "claim_id",
+              "policy_id",
+              "settled_amount",
+              "severity_band",
+              "change_date",
+              "change_category",
+              "days_to_next_claim_loss"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "Result includes at least one C1 policy with no preceding change: ['P-21601', 'P-29433', 'P-30210', 'P-32773', 'P-37178', 'P-40432'].",
+          "diagnostics": {
+            "question": "What happened immediately before the largest claims?",
+            "generated_sql": "WITH largest_claims AS (\n  SELECT claim_id, policy_id, settled_amount, severity_band\n  FROM workspace.ptm_gold.claim_event\n  ORDER BY settled_amount DESC\n  LIMIT 20\n),\npreceding_change AS (\n  SELECT next_claim_id AS claim_id, change_date, change_category, days_to_next_claim_loss,\n         ROW_NUMBER() OVER (PARTITION BY next_claim_id ORDER BY days_to_next_claim_loss ASC) AS rn\n  FROM workspace.ptm_gold.policy_change_event\n  WHERE is_material = true\n    AND change_timing = 'before_loss'\n)\nSELECT lc.claim_id, lc.policy_id, lc.settled_amount, lc.severity_band,\n       pc.change_date, pc.change_category, pc.days_to_next_claim_loss\nFROM largest_claims lc\nLEFT JOIN preceding_change pc\n  ON pc.claim_id = lc.claim_id AND pc.rn = 1\nORDER BY lc.settled_amount DESC",
+            "description": "You want to see the 20 largest claims ranked by their settled amount, along with details about the closest material policy change that happened immediately before each claim's loss date, if any.",
+            "status": "ok",
+            "row_count": 20,
+            "columns": [
+              "claim_id",
+              "policy_id",
+              "settled_amount",
+              "severity_band",
+              "change_date",
+              "change_category",
+              "days_to_next_claim_loss"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "Result includes at least one C1 policy with no preceding change: ['P-21601', 'P-29433', 'P-30210', 'P-32773', 'P-37178', 'P-40432'].",
+          "diagnostics": {
+            "question": "What happened immediately before the largest claims?",
+            "generated_sql": "WITH largest_claims AS (\n  SELECT claim_id, policy_id, settled_amount, severity_band\n  FROM workspace.ptm_gold.claim_event\n  ORDER BY settled_amount DESC\n  LIMIT 20\n),\npreceding_change AS (\n  SELECT next_claim_id AS claim_id, change_date, change_category, days_to_next_claim_loss,\n         ROW_NUMBER() OVER (PARTITION BY next_claim_id ORDER BY days_to_next_claim_loss ASC) AS rn\n  FROM workspace.ptm_gold.policy_change_event\n  WHERE is_material = true\n    AND change_timing = 'before_loss'\n)\nSELECT lc.claim_id, lc.policy_id, lc.settled_amount, lc.severity_band,\n       pc.change_date, pc.change_category, pc.days_to_next_claim_loss\nFROM largest_claims lc\nLEFT JOIN preceding_change pc\n  ON pc.claim_id = lc.claim_id AND pc.rn = 1\nORDER BY lc.settled_amount DESC",
+            "description": "You're looking for the 20 largest claims by settled amount and want to see the material policy change that happened immediately before each of these claims, if any.",
+            "status": "ok",
+            "row_count": 20,
+            "columns": [
+              "claim_id",
+              "policy_id",
+              "settled_amount",
+              "severity_band",
+              "change_date",
+              "change_category",
+              "days_to_next_claim_loss"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-13",
+      "type": "ranking+comparison",
+      "question": "Are claims more frequent, within 60 days, following specific types of material policy changes?",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "No banned vocabulary, ordering (where present) matches declared, carries a comparison figure.",
+          "diagnostics": {
+            "question": "Are claims more frequent, within 60 days, following specific types of material policy changes?",
+            "generated_sql": "WITH by_category AS (\n  SELECT change_category,\n         COUNT(DISTINCT next_claim_id) AS claim_count\n  FROM `workspace`.`ptm_gold`.`policy_change_event`\n  WHERE is_material = true\n    AND change_timing = 'before_loss'\n    AND days_to_next_claim_loss <= 60\n  GROUP BY change_category\n),\nbaseline AS (\n  SELECT COUNT(DISTINCT claim_id) AS baseline_claim_count\n  FROM `workspace`.`ptm_gold`.`claim_event`\n)\nSELECT b.change_category, b.claim_count, l.baseline_claim_count\nFROM by_category b\nCROSS JOIN baseline l\nORDER BY b.claim_count DESC",
+            "description": "You want to see how many claims occurred within 60 days after different types of material policy changes, compared to the total number of claims overall.",
+            "status": "ok",
+            "row_count": 5,
+            "columns": [
+              "change_category",
+              "claim_count",
+              "baseline_claim_count"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "No banned vocabulary, ordering (where present) matches declared, carries a comparison figure.",
+          "diagnostics": {
+            "question": "Are claims more frequent, within 60 days, following specific types of material policy changes?",
+            "generated_sql": "WITH by_category AS (\n  SELECT change_category,\n         COUNT(DISTINCT next_claim_id) AS claim_count\n  FROM workspace.ptm_gold.policy_change_event\n  WHERE is_material = true\n    AND change_timing = 'before_loss'\n    AND days_to_next_claim_loss <= 60\n  GROUP BY change_category\n),\nbaseline AS (\n  SELECT COUNT(DISTINCT claim_id) AS baseline_claim_count\n  FROM workspace.ptm_gold.claim_event\n)\nSELECT b.change_category, b.claim_count, l.baseline_claim_count\nFROM by_category b\nCROSS JOIN baseline l\nORDER BY b.claim_count DESC",
+            "description": "You want to see how many claims occurred within 60 days after different types of material policy changes, compared to the total number of claims overall.",
+            "status": "ok",
+            "row_count": 5,
+            "columns": [
+              "change_category",
+              "claim_count",
+              "baseline_claim_count"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "No banned vocabulary, ordering (where present) matches declared, carries a comparison figure.",
+          "diagnostics": {
+            "question": "Are claims more frequent, within 60 days, following specific types of material policy changes?",
+            "generated_sql": "WITH by_category AS (\n  SELECT change_category,\n         COUNT(DISTINCT next_claim_id) AS claim_count\n  FROM workspace.ptm_gold.policy_change_event\n  WHERE is_material = true\n    AND change_timing = 'before_loss'\n    AND days_to_next_claim_loss <= 60\n  GROUP BY change_category\n),\nbaseline AS (\n  SELECT COUNT(DISTINCT claim_id) AS baseline_claim_count\n  FROM workspace.ptm_gold.claim_event\n)\nSELECT b.change_category, b.claim_count, l.baseline_claim_count\nFROM by_category b\nCROSS JOIN baseline l\nORDER BY b.claim_count DESC",
+            "description": "You want to see how many claims occur within 60 days after different types of material policy changes, compared to the total number of claims overall.",
+            "status": "ok",
+            "row_count": 5,
+            "columns": [
+              "change_category",
+              "claim_count",
+              "baseline_claim_count"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-14",
+      "type": "table-routed",
+      "question": "Show unusual historical patterns worth investigating.",
+      "turns": null,
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "Every returned pattern_name is one of the six defined codes; counts match where present.",
+          "diagnostics": {
+            "question": "Show unusual historical patterns worth investigating.",
+            "generated_sql": "SELECT `pattern_name`, COUNT(DISTINCT `policy_id`) AS policies\nFROM `workspace`.`ptm_gold`.`policy_pattern_match`\nGROUP BY `pattern_name`\nORDER BY policies DESC",
+            "description": "You're looking to see the different unusual historical patterns that are worth investigating, along with how many unique policies match each pattern, sorted by the most common patterns first.",
+            "status": "ok",
+            "row_count": 6,
+            "columns": [
+              "pattern_name",
+              "policies"
+            ]
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "Every returned pattern_name is one of the six defined codes; counts match where present.",
+          "diagnostics": {
+            "question": "Show unusual historical patterns worth investigating.",
+            "generated_sql": "SELECT `pattern_name`, COUNT(DISTINCT `policy_id`) AS policies\nFROM `workspace`.`ptm_gold`.`policy_pattern_match`\nGROUP BY `pattern_name`\nORDER BY policies DESC",
+            "description": "You're looking to see the different unusual historical patterns that are worth investigating, along with how many policies match each pattern.",
+            "status": "ok",
+            "row_count": 6,
+            "columns": [
+              "pattern_name",
+              "policies"
+            ]
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "Every returned pattern_name is one of the six defined codes; counts match where present.",
+          "diagnostics": {
+            "question": "Show unusual historical patterns worth investigating.",
+            "generated_sql": "SELECT `pattern_name`, COUNT(DISTINCT `policy_id`) AS policies\nFROM `workspace`.`ptm_gold`.`policy_pattern_match`\nGROUP BY `pattern_name`\nORDER BY policies DESC",
+            "description": "You want to see the different unusual historical patterns that policies have matched, along with how many policies have matched each pattern, ordered by the most common patterns first.",
+            "status": "ok",
+            "row_count": 6,
+            "columns": [
+              "pattern_name",
+              "policies"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "QC-15",
+      "type": "cohort-multiturn",
+      "question": null,
+      "turns": [
+        "Show policies where coverage increased within 30 days before a claim.",
+        "Of these, which had a claim near the new limit?"
+      ],
+      "pass_count": 3,
+      "of": 3,
+      "severity": "green",
+      "runs": [
+        {
+          "run": 1,
+          "passed": true,
+          "detail": "Turn 2 (67 policies) is a subset of turn 1 (108 policies) and includes all S6 policies.",
+          "diagnostics": {
+            "turn1_question": "Show policies where coverage increased within 30 days before a claim.",
+            "turn1_generated_sql": "SELECT policy_id, change_date, coverage_line, old_value_num, new_value_num, days_to_next_claim_loss, next_claim_amount, next_claim_severity\nFROM workspace.ptm_gold.policy_change_event\nWHERE change_category = 'coverage'\n  AND change_direction = 'increase'\n  AND change_timing = 'before_loss'\n  AND days_to_next_claim_loss <= 30\nORDER BY days_to_next_claim_loss",
+            "turn1_description": "You want to see policies where the coverage was increased within the 30 days leading up to a claim being reported.",
+            "turn1_status": "ok",
+            "turn2_question": "Of these, which had a claim near the new limit?",
+            "turn2_generated_sql": "SELECT pce.policy_id, pce.change_date, pce.coverage_line, pce.old_value_num, pce.new_value_num, pce.days_to_next_claim_loss, ce.claim_id, ce.settled_amount, ce.limit_utilization_pct, ce.severity_band\nFROM workspace.ptm_gold.policy_change_event pce\nJOIN workspace.ptm_gold.policy_pattern_match ppm\n  ON pce.policy_id = ppm.policy_id\n  AND ppm.pattern_code = 'claim_near_new_limit'\nJOIN workspace.ptm_gold.claim_event ce\n  ON pce.next_claim_id = ce.claim_id\nWHERE pce.change_category = 'coverage'\n  AND pce.change_direction = 'increase'\n  AND pce.change_timing = 'before_loss'\n  AND pce.days_to_next_claim_loss <= 30\n  AND ce.at_or_near_limit = true\nORDER BY pce.days_to_next_claim_loss",
+            "turn2_description": "You want to see policies where coverage increased within 30 days before a claim, and among those, identify the claims that were near the new limit.",
+            "turn2_status": "ok"
+          }
+        },
+        {
+          "run": 2,
+          "passed": true,
+          "detail": "Turn 2 (67 policies) is a subset of turn 1 (108 policies) and includes all S6 policies.",
+          "diagnostics": {
+            "turn1_question": "Show policies where coverage increased within 30 days before a claim.",
+            "turn1_generated_sql": "SELECT policy_id, change_date, coverage_line, old_value_num, new_value_num, days_to_next_claim_loss, next_claim_amount, next_claim_severity FROM workspace.ptm_gold.policy_change_event WHERE change_category = 'coverage' AND change_direction = 'increase' AND change_timing = 'before_loss' AND days_to_next_claim_loss <= 30 ORDER BY days_to_next_claim_loss",
+            "turn1_description": "You want to see policies where the coverage was increased within 30 days before a claim was reported.",
+            "turn1_status": "ok",
+            "turn2_question": "Of these, which had a claim near the new limit?",
+            "turn2_generated_sql": "SELECT pce.policy_id, pce.change_date, pce.coverage_line, pce.old_value_num, pce.new_value_num, pce.days_to_next_claim_loss, pce.next_claim_amount, pce.next_claim_severity, ce.settled_amount, ce.limit_utilization_pct\nFROM workspace.ptm_gold.policy_change_event pce\nJOIN workspace.ptm_gold.claim_event ce\n  ON pce.policy_id = ce.policy_id AND pce.next_claim_id = ce.claim_id\nJOIN workspace.ptm_gold.policy_pattern_match ppm\n  ON ce.policy_id = ppm.policy_id AND ce.claim_id = ppm.evidence_claim_id\nWHERE pce.change_category = 'coverage'\n  AND pce.change_direction = 'increase'\n  AND pce.change_timing = 'before_loss'\n  AND pce.days_to_next_claim_loss <= 30\n  AND ce.at_or_near_limit = true\n  AND ppm.pattern_code = 'claim_near_new_limit'\nORDER BY pce.days_to_next_claim_loss",
+            "turn2_description": "You want to see policies where the coverage was increased within 30 days before a claim, and among those, identify the claims that were near the new limit.",
+            "turn2_status": "ok"
+          }
+        },
+        {
+          "run": 3,
+          "passed": true,
+          "detail": "Turn 2 (71 policies) is a subset of turn 1 (108 policies) and includes all S6 policies.",
+          "diagnostics": {
+            "turn1_question": "Show policies where coverage increased within 30 days before a claim.",
+            "turn1_generated_sql": "SELECT policy_id, change_date, coverage_line, old_value_num, new_value_num,\n       days_to_next_claim_loss, next_claim_amount, next_claim_severity\nFROM workspace.ptm_gold.policy_change_event\nWHERE change_category = 'coverage'\n  AND change_direction = 'increase'\n  AND change_timing = 'before_loss'\n  AND days_to_next_claim_loss <= 30\nORDER BY days_to_next_claim_loss",
+            "turn1_description": "You want to see policies where the coverage amount was increased within the 30 days leading up to a claim being reported. The results include details about the policy, the date of the coverage increase, the coverage line affected, the old and new coverage amounts, how many days before the claim loss the increase happened, and information about the subsequent claim's amount and severity.",
+            "turn1_status": "ok",
+            "turn2_question": "Of these, which had a claim near the new limit?",
+            "turn2_generated_sql": "SELECT p.policy_id, p.change_date, p.coverage_line, p.old_value_num, p.new_value_num,\n       p.days_to_next_claim_loss, c.claim_id, c.settled_amount, c.applicable_limit, c.limit_utilization_pct, c.severity_band\nFROM workspace.ptm_gold.policy_change_event p\nJOIN workspace.ptm_gold.claim_event c\n  ON p.policy_id = c.policy_id AND p.next_claim_id = c.claim_id\nWHERE p.change_category = 'coverage'\n  AND p.change_direction = 'increase'\n  AND p.change_timing = 'before_loss'\n  AND p.days_to_next_claim_loss <= 30\n  AND c.at_or_near_limit = true\nORDER BY p.days_to_next_claim_loss",
+            "turn2_description": "You want to see policies where the coverage increased within 30 days before a claim, and among those, you want to identify the claims that were at or near the policy limit.",
+            "turn2_status": "ok"
+          }
+        }
+      ]
+    }
+  ]
+}

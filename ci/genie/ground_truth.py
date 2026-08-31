@@ -119,7 +119,7 @@ class GroundTruth:
 
 
 def load(client: WorkspaceClient) -> GroundTruth:
-    manifest = _q(client, "SELECT anchor_date, demo_policy_id FROM generation_manifest")[0]
+    manifest = _q(client, "SELECT anchor_date, demo_policy_id FROM ptm_bronze.generation_manifest")[0]
     anchor_date = str(manifest["anchor_date"])
     demo_policy_id = manifest["demo_policy_id"] or config.DEMO_POLICY_ID
 
@@ -127,7 +127,7 @@ def load(client: WorkspaceClient) -> GroundTruth:
     def scenario_ids(scenario_id: str) -> set[str]:
         rows = _q(
             client,
-            f"SELECT policy_id FROM scenario_assignment WHERE scenario_id = '{scenario_id}'",
+            f"SELECT policy_id FROM ptm_bronze.scenario_assignment WHERE scenario_id = '{scenario_id}'",
         )
         return _ids(rows)
 
@@ -251,7 +251,7 @@ def load(client: WorkspaceClient) -> GroundTruth:
         """
         SELECT cl.claim_id, cl.policy_id, cl.settled_amount, sa.scenario_id
         FROM claim_event cl
-        LEFT JOIN scenario_assignment sa ON sa.policy_id = cl.policy_id
+        LEFT JOIN ptm_bronze.scenario_assignment sa ON sa.policy_id = cl.policy_id
         ORDER BY cl.settled_amount DESC
         LIMIT 20
         """,

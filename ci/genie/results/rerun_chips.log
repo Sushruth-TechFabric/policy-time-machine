@@ -1,0 +1,33 @@
+[20260831T230511Z] Loaded 26 chip occurrence(s) (20 unique question(s)) from /home/sushruth-techfabric/repos/work/policy-time-machine/app/backend/chips.json
+[20260831T230511Z] [1/26] (investigation_start) 'Show policies where coverage increased within 30 days before a claim.' ... PASS
+[20260831T230533Z] [2/26] (investigation_start) 'Find policies with several material changes before a high-severity claim.' ... PASS
+[20260831T230550Z] [3/26] (investigation_start) 'Which policy fields change most frequently before claims?' ... PASS
+[20260831T230614Z] [4/26] (investigation_start) 'Compare policies with recent material changes against policies without.' ... PASS
+[20260831T230636Z] [5/26] (investigation_start) 'Which customers have the highest number of policy changes?' ... PASS
+[20260831T230654Z] [6/26] (timeline_open) 'What changed on policy P-10155 during the last year?' ... PASS
+[20260831T230714Z] [7/26] (timeline_open) 'What changed before the latest claim on P-10155?' ... PASS
+[20260831T230737Z] [8/26] (timeline_open) 'Find policies with histories similar to P-10155.' ... PASS
+[20260831T230759Z] [9/26] (timeline_open) 'Compare policies with recent material changes against policies without.' ... PASS
+[20260831T230821Z] [10/26] (similarity_view) 'Find policies with histories similar to P-10155.' ... PASS
+[20260831T230838Z] [11/26] (similarity_view) 'Show the material change counts and claim counts for policies similar to P-10155.' ... PASS
+[20260831T230855Z] [12/26] (similarity_view) 'Which policies similar to P-10155 have a claim near the limit?' ... PASS
+[20260831T230912Z] [13/26] (similarity_view) 'Which noteworthy patterns are most common among policies similar to P-10155?' ... PASS
+[20260831T230933Z] [14/26] (cohort_on_screen) 'Show policies where deductible decreased before a claim.' ... PASS
+[20260831T230949Z] [15/26] (cohort_on_screen) 'Which material changes happen most frequently before claims above $25,000?' ... PASS
+[20260831T231006Z] [16/26] (cohort_on_screen) 'Which policies changed vehicles and addresses within 60 days?' ... PASS
+[20260831T231029Z] [17/26] (cohort_on_screen) 'What happened immediately before the largest claims?' ... PASS
+[20260831T231051Z] [18/26] (cohort_on_screen) 'Are claims more frequent following specific types of policy changes?' ... PASS
+[20260831T231107Z] [19/26] (pattern_view) 'Which patterns are most common?' ... PASS
+[20260831T231129Z] [20/26] (pattern_view) 'Show policies with nothing noteworthy.' ... PASS
+[20260831T231146Z] [21/26] (pattern_view) 'Show unusual historical patterns worth investigating.' ... PASS
+[20260831T231203Z] [22/26] (pattern_view) 'Which noteworthy patterns has policy P-10155 matched?' ... PASS
+[20260831T231220Z] [23/26] (aggregate_view) 'Compare policies with recent material changes against policies without.' ... PASS
+[20260831T231237Z] [24/26] (aggregate_view) 'Which policy fields change most frequently before claims?' ... PASS
+[20260831T231259Z] [25/26] (aggregate_view) 'Are claims more frequent following specific types of policy changes?' ... PASS
+[20260831T231322Z] [26/26] (aggregate_view) 'Which material changes happen most frequently before claims above $25,000?' ... PASS
+
+Chip Execution Run — Policy Time Machine
+Timestamp: 20260831T231344Z
+26/26 chip occurrences passed (20 unique questions).
+
+OVERALL: PASS

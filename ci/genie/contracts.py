@@ -588,7 +588,7 @@ CONTRACTS: list[Contract] = [
     Contract(
         "QC-04",
         "cohort",
-        "Find policies with several material changes before a high-severity claim.",
+        "Find policies with several material changes in the 90 days before a high-severity claim.",
         None,
         check_qc04,
     ),
