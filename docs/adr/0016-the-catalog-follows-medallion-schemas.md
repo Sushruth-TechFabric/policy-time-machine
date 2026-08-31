@@ -1,0 +1,14 @@
+# The catalog follows medallion schemas: ptm_bronze, ptm_silver, ptm_gold
+
+The catalog objects are laid out as three schemas in the `workspace` catalog, following the Databricks medallion convention: `ptm_bronze` holds the nine tables the generator emits (spec 01 §3) plus the `raw` landing volume; `ptm_silver` holds `change_event`, the conformed change stream diffed from the SCD2 versions; `ptm_gold` holds the six curated tables and is exactly the Genie space (ADR-0002). Table names do not carry a layer prefix — the schema *is* the layer, which is how the convention is meant to be read in Unity Catalog and what a Databricks judge expects to find.
+
+The layer boundaries are the ones the architecture already had, now made visible in the namespace. Bronze is generator output loaded verbatim (`CREATE OR REPLACE ... AS SELECT * FROM parquet`), unvalidated by the catalog because validation belongs to the generator's own emit-time assertions and the post-generation validation job (spec 08 §2). Silver is the transformation stage: the one derived intermediate every gold event table is built from, published as a real table so the bronze → silver → gold dependency shows in the pipeline graph rather than living as an in-memory shortcut. Gold is business-ready and Genie-visible, and nothing else is (ADR-0002 unchanged).
+
+## Consequences
+
+- **The DLT pipeline uses direct publishing mode.** `schema: ptm_gold` (not `target:`) in the bundle, so unqualified `@dlt.table` names publish to gold while `change_event` publishes cross-schema under its fully qualified name. Gold builders read the silver table with `dlt.read`, making the lineage real.
+- **Silver is one table, and that is deliberate.** The driver-side pandas build (dlt_pipeline.py's module docstring) means the only materialisation-worthy intermediate is the shared change stream. Padding silver with conformed copies of bronze tables nothing reads would be layer theatre.
+- **The `qa_*` assertion tables stay `temporary=True`** and so belong to no layer; they exist to fail a run, not to be read.
+- **Schemas are ensured by DDL in the generate task, not bundle `schemas` resources.** Development-mode deploys prefix bundle-managed schema names, which would break every hardcoded `ptm_*` reference in the pipeline conf, app config, and Genie space. `CREATE SCHEMA IF NOT EXISTS` ×3 plus `CREATE VOLUME IF NOT EXISTS` at the top of task 1 is idempotent and runs before anything needs them.
+- **Consumers point at gold only.** The app backend (`PTM_SCHEMA` default), the Genie space builder, UC comments and the CI ground-truth contracts all default to `ptm_gold`; none can accidentally reach bronze or silver, which is ADR-0002's "no plausible-wrong path" rule extended to schemas.
+- **Resource names keep the `policy_time_machine` prefix** (bundle, job, pipeline, app). They are workspace resources, not catalog objects; the medallion convention governs the catalog namespace.

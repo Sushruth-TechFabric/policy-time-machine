@@ -29,7 +29,7 @@ Task zero ──┬── Data track: P1 → P2 → P3 → P4
 
 ## 3. Data track
 
-### P1 — Generator and source tables
+### P1 — Generator and bronze source tables (`ptm_bronze`)
 Build from `01-data-model-and-synthetic-data.md`. Seeded, anchor-parameterised, emitting the SCD Type 2 history, claims, vehicles, customers and agents.
 
 Non-negotiables: identifier lexical reservation; no absolute dates; the loss-to-report lag distribution; derived premium changes marked non-material; no renewal-driven status recalculations; the six scenarios and five control populations at relative offsets.
@@ -165,5 +165,5 @@ Writable now from the ADRs; none blocks the build.
 
 - **Submission deadline.** Converts this into a schedule and fixes where the cut line falls.
 - **Dataset volumes.** Currently the assumption stated in `01-data-model-and-synthetic-data.md` §4.
-- **Target workspace, catalog and schema names.**
+- ~~**Target workspace, catalog and schema names.**~~ Resolved: catalog `workspace`, medallion schemas `ptm_bronze` / `ptm_silver` / `ptm_gold` (ADR-0016).
 - **Warehouse size** — anything serverless will do at this data volume.

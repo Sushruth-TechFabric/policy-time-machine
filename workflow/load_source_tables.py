@@ -1,7 +1,8 @@
 """Task 3 of the ``policy_time_machine_regeneration`` job: load_source_tables.
 
-Recreates the nine source Delta tables (spec 01 section 3) from the parquet
-the generator just wrote to the volume, one `CREATE OR REPLACE TABLE ... AS
+Recreates the nine bronze Delta tables (spec 01 section 3, schema
+``ptm_bronze`` — ADR-0016) from the parquet the generator just wrote to the
+volume, one `CREATE OR REPLACE TABLE ... AS
 SELECT * FROM parquet.`<path>`` per table. This runs as `spark.sql` in a
 serverless Python task rather than a separate SQL task against the warehouse
 (spec P8: "pick the simpler") — one script loops the nine tables with
@@ -24,8 +25,8 @@ from __future__ import annotations
 from pyspark.sql import SparkSession
 
 CATALOG = "workspace"
-SCHEMA = "policy_time_machine"
-VOLUME_DIR = "/Volumes/workspace/policy_time_machine/raw"
+SCHEMA = "ptm_bronze"
+VOLUME_DIR = "/Volumes/workspace/ptm_bronze/raw"
 
 # Matches generator/emit.py:TABLE_ORDER — the nine source tables the
 # generator emits one parquet file per.

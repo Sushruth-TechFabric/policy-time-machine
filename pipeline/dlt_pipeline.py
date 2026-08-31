@@ -4,6 +4,11 @@ Builds the six curated tables of `docs/specs/02-semantic-layer.md` from the raw
 source tables of spec 01 §3, with the expectations of spec 02 §8 enforced at
 write time (ADR-0013).
 
+The catalog follows the medallion layout (ADR-0016): sources are read from the
+``ptm_bronze`` schema, the derived change stream publishes to ``ptm_silver``,
+and the six curated tables publish to ``ptm_gold`` — the pipeline's default
+target schema, and the only schema the Genie space can see.
+
 This module is a **thin wrapper and nothing else**. Every transformation rule
 lives in ``transformations.py`` and every expectation predicate lives in
 ``expectations.py``; both import without PySpark, and both are unit tested
@@ -78,8 +83,12 @@ the same review executable as a column-name check.
 ------------------------------------------------------------------------------
 Configuration — Spark conf, set in the Asset Bundle pipeline definition
 ------------------------------------------------------------------------------
-``ptm.catalog``      default ``workspace``
-``ptm.schema``       default ``policy_time_machine``
+``ptm.catalog``        default ``workspace``
+``ptm.bronze_schema``  default ``ptm_bronze``; the raw generator tables
+``ptm.silver_schema``  default ``ptm_silver``; where ``change_event`` publishes
+                       (gold needs no conf key: unqualified ``@dlt.table`` names
+                       publish to the pipeline's default target schema,
+                       ``schema: ptm_gold`` in ``databricks.yml``)
 ``ptm.anchor_date``  ``YYYY-MM-DD``; the generator's anchor (ADR-0006). Left
                      unset by the scheduled regeneration job (P8): when empty,
                      ``ANCHOR_DATE`` is read from
@@ -107,8 +116,13 @@ import transformations as T
 spark = SparkSession.getActiveSession() or SparkSession.builder.getOrCreate()
 
 CATALOG = spark.conf.get("ptm.catalog", "workspace")
-SCHEMA = spark.conf.get("ptm.schema", "policy_time_machine")
+BRONZE_SCHEMA = spark.conf.get("ptm.bronze_schema", "ptm_bronze")
+SILVER_SCHEMA = spark.conf.get("ptm.silver_schema", "ptm_silver")
 K = int(spark.conf.get("ptm.k", str(T.K_NEIGHBOURS)))
+
+# The one cross-schema dataset this pipeline both writes and reads; direct
+# publishing mode resolves the fully qualified name in @dlt.table and dlt.read.
+SILVER_CHANGE_EVENT = f"{CATALOG}.{SILVER_SCHEMA}.change_event"
 
 _ANCHOR_CONF = spark.conf.get("ptm.anchor_date", "")
 if _ANCHOR_CONF:
@@ -122,7 +136,7 @@ else:
     # anchor drifts a day off the generator's the moment the job runs after
     # midnight relative to generation.
     _manifest_anchor = spark.sql(
-        f"SELECT anchor_date FROM {CATALOG}.{SCHEMA}.generation_manifest LIMIT 1"
+        f"SELECT anchor_date FROM {CATALOG}.{BRONZE_SCHEMA}.generation_manifest LIMIT 1"
     ).collect()[0][0]
     ANCHOR_DATE = (
         _manifest_anchor
@@ -134,11 +148,11 @@ EXPECTATIONS = X.all_expectations(ANCHOR_DATE, K)
 
 
 # ---------------------------------------------------------------------------
-# Source reads and the single driver-side build
+# Bronze reads and the single driver-side build
 # ---------------------------------------------------------------------------
 
 def _qualified(name: str) -> str:
-    return f"{CATALOG}.{SCHEMA}.{name}"
+    return f"{CATALOG}.{BRONZE_SCHEMA}.{name}"
 
 
 def _source(name: str) -> "pd.DataFrame":
@@ -151,7 +165,7 @@ def _exists(name: str) -> bool:
     return (
         spark.sql(
             f"SELECT 1 FROM {CATALOG}.information_schema.tables "
-            f"WHERE table_schema = '{SCHEMA}' AND table_name = '{name}' LIMIT 1"
+            f"WHERE table_schema = '{BRONZE_SCHEMA}' AND table_name = '{name}' LIMIT 1"
         ).count()
         > 0
     )
@@ -171,17 +185,10 @@ def _build() -> dict[str, Any]:
     claims = _source("claim")
     claim_payment = _source("claim_payment") if _exists("claim_payment") else None
 
-    # Spec 01 §3 lists no change-event source table, yet §2 gives change events an
-    # identifier format and §4 a volume target, both of which read as generator
-    # output. Both readings are supported: consume the raw table when the
-    # generator emits one, otherwise reconstruct the same grain by diffing the
-    # SCD Type 2 versions.
-    if _exists("change_event"):
-        changes = _source("change_event")
-    else:
-        changes = T.derive_change_events_from_scd2(
-            policy_history, policy_coverage_history
-        )
+    # The change stream comes from the silver table below via dlt.read, so the
+    # bronze -> silver -> gold dependency is real in the pipeline graph rather
+    # than an in-memory shortcut lineage would never show (ADR-0016).
+    changes = dlt.read(SILVER_CHANGE_EVENT).toPandas()
 
     _BUILT = T.build_all(
         changes=changes,
@@ -204,26 +211,25 @@ _SPARK_TYPES = {
 }
 
 
-def spark_schema(table: str) -> Tp.StructType:
+def spark_schema(declared: tuple[tuple[str, str], ...]) -> Tp.StructType:
     """Built from the same declared schema the pandas layer casts to, so the
     Spark and pandas views of a table cannot drift."""
     return Tp.StructType([
         Tp.StructField(name, _SPARK_TYPES[kind], True)
-        for name, kind in T.SCHEMAS[table]
+        for name, kind in declared
     ])
 
 
-def _emit(table: str):
-    """One curated pandas frame, as a Spark DataFrame with the declared schema.
+def _as_spark(pdf: "pd.DataFrame", declared: tuple[tuple[str, str], ...]):
+    """A pandas frame as a Spark DataFrame with the declared schema.
 
     Rows are converted to Python natives rather than handed to Arrow: the pandas
     layer uses nullable extension dtypes (``Int64``, ``Float64``, ``boolean``) so
     that NULL stays NULL rather than becoming NaN, and this keeps that guarantee
     all the way into Delta.
     """
-    pdf = _build()[table]
-    kinds = dict(T.SCHEMAS[table])
-    columns = [name for name, _ in T.SCHEMAS[table]]
+    kinds = dict(declared)
+    columns = [name for name, _ in declared]
     rows = []
     for record in pdf.to_dict("records"):
         row = []
@@ -244,11 +250,42 @@ def _emit(table: str):
             else:
                 row.append(str(value))
         rows.append(tuple(row))
-    return spark.createDataFrame(rows, schema=spark_schema(table))
+    return spark.createDataFrame(rows, schema=spark_schema(declared))
+
+
+def _emit(table: str):
+    """One curated gold frame from the driver-side build, as Spark."""
+    return _as_spark(_build()[table], T.SCHEMAS[table])
 
 
 # ---------------------------------------------------------------------------
-# The six curated tables (spec 02 §2–§7)
+# Silver — the derived change stream (ADR-0016)
+# ---------------------------------------------------------------------------
+
+@dlt.table(
+    name=SILVER_CHANGE_EVENT,
+    comment="One row per field change, diffed from consecutive SCD2 versions "
+            "in ptm_bronze. The conformed transformation layer the gold event "
+            "tables are built from; not part of the Genie space.",
+    table_properties={"quality": "silver"},
+)
+def change_event():
+    # Spec 01 §3 lists no change-event source table, yet §2 gives change events
+    # an identifier format and §4 a volume target, both of which read as
+    # generator output. Both readings are supported: consume the bronze table
+    # when the generator emits one, otherwise reconstruct the same grain by
+    # diffing the SCD Type 2 versions.
+    if _exists("change_event"):
+        changes = _source("change_event")
+    else:
+        changes = T.derive_change_events_from_scd2(
+            _source("policy_history"), _source("policy_coverage_history")
+        )
+    return _as_spark(changes, T.CHANGE_EVENT_SCHEMA)
+
+
+# ---------------------------------------------------------------------------
+# Gold — the six curated tables (spec 02 §2–§7), the Genie space
 # ---------------------------------------------------------------------------
 
 @dlt.table(

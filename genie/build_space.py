@@ -43,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "pipeline"))
 from transformations import APPROVED_VOCABULARY, vocabulary_violations  # noqa: E402
 
 CATALOG = "workspace"
-SCHEMA = "policy_time_machine"
+SCHEMA = "ptm_gold"
 WAREHOUSE_ID = "e39eb96b7df5ab0f"
 
 TITLE = "Policy Time Machine"

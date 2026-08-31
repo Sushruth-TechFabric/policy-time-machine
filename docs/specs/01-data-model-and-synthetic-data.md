@@ -71,9 +71,105 @@ Identifiers are a contract between the generator and the application (ADR-0007),
 
 ---
 
-## 3. Source tables
+## 3. Source tables — the bronze layer
 
-These are the raw layer. **None of them is exposed to Genie** (ADR-0002); the curated tables in `02-semantic-layer.md` are built from them.
+These are the raw layer, published to the `ptm_bronze` schema alongside the `raw` landing volume (medallion layout, ADR-0016). **None of them is exposed to Genie** (ADR-0002); the curated gold tables in `02-semantic-layer.md` are built from them, by way of the silver `change_event` stream (`ptm_silver`).
+
+The bronze layer at a glance (source: [`docs/diagrams/06-er-raw-layer.mmd`](../diagrams/06-er-raw-layer.mmd)):
+
+```mermaid
+%% Diagram 6 — The bronze raw layer (source tables + generator artefacts). Audience: data model spec.
+%% Embedded in docs/specs/01-data-model-and-synthetic-data.md §3. Never exposed to Genie (ADR-0002); medallion layout per ADR-0016.
+erDiagram
+    customer {
+        string customer_id PK
+        string first_name
+        string last_name
+        int birth_year "year only - visibly non-personal"
+        string city
+        string state
+        string postal_code
+        date customer_since_date
+    }
+    policy_history {
+        string policy_id PK "composite key with version_no"
+        int version_no PK
+        string customer_id FK
+        date effective_from
+        date effective_to "exclusive; current version = 9999-12-31"
+        boolean is_current
+        string policy_status "active | lapsed | reinstated | cancelled | non_renewed"
+        string agent_id FK
+        string garaging_city_state_postal "3 cols, abbreviated"
+        string primary_vehicle_id FK
+        date term_start_date
+        date term_end_date "may sit in the future - attribute, not event"
+        decimal annual_premium
+        string endorsement_id
+    }
+    policy_coverage_history {
+        string policy_id PK "composite key with coverage_line + version_no"
+        string coverage_line PK
+        int version_no PK
+        date effective_from
+        date effective_to
+        boolean is_current
+        decimal limit_amount
+        decimal deductible_amount
+        string endorsement_id
+    }
+    vehicle {
+        string vehicle_id PK
+        string policy_id FK
+        string make
+        string model
+        int model_year
+        string body_style
+        date added_date
+        date removed_date "no VIN - deliberately absent"
+    }
+    agent {
+        string agent_id PK
+        string agent_name
+        string region
+    }
+    claim {
+        string claim_id PK
+        string policy_id FK
+        string coverage_line
+        date loss_date
+        date report_date "always >= loss_date"
+        decimal settled_amount "one amount - no incurred-vs-paid development"
+        string claim_status
+    }
+    claim_payment {
+        string payment_id PK
+        string claim_id FK
+        date payment_date
+        decimal amount "payments sum to settled_amount when settled"
+    }
+    scenario_assignment {
+        string policy_id FK "noteworthy, control, similarity-group or DEMO"
+        string scenario_id
+    }
+    generation_manifest {
+        int seed "single row - the reproducibility record"
+        date anchor_date
+        int history_days
+        string demo_policy_id
+        decimal hazard_base_daily
+        decimal hazard_recent_multiplier
+        decimal hazard_residual
+    }
+
+    customer ||--o{ policy_history : "customer_id"
+    agent ||--o{ policy_history : "agent_id"
+    policy_history ||--o{ policy_coverage_history : "policy_id - versioned per coverage line"
+    policy_history ||--o{ vehicle : "policy_id"
+    policy_history ||--o{ claim : "policy_id"
+    claim ||--o{ claim_payment : "claim_id"
+    policy_history ||--o| scenario_assignment : "policy_id"
+```
 
 ### `customer`
 `customer_id`, `first_name`, `last_name`, `birth_year`, `city`, `state`, `postal_code`, `customer_since_date`

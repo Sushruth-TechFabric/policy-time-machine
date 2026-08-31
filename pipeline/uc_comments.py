@@ -24,7 +24,7 @@ from typing import Iterator
 from transformations import SCHEMAS, vocabulary_violations
 
 DEFAULT_CATALOG = "workspace"
-DEFAULT_SCHEMA = "policy_time_machine"
+DEFAULT_SCHEMA = "ptm_gold"
 
 #: Quoted verbatim from spec 02 §9. Keyed by ``(table, column)``; ``None`` as the
 #: column means the table comment.

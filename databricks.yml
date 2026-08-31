@@ -33,12 +33,17 @@ resources:
     policy_time_machine_pipeline:
       name: policy_time_machine_pipeline
       catalog: workspace
-      target: policy_time_machine
+      # `schema` (not `target`) opts into direct publishing mode: unqualified
+      # @dlt.table names publish to ptm_gold, while the silver change_event
+      # table publishes cross-schema under its fully qualified name
+      # (medallion layout, ADR-0016).
+      schema: ptm_gold
       serverless: true
       channel: PREVIEW
       configuration:
         ptm.catalog: workspace
-        ptm.schema: policy_time_machine
+        ptm.bronze_schema: ptm_bronze
+        ptm.silver_schema: ptm_silver
         # ptm.anchor_date deliberately unset (P8): dlt_pipeline.py falls back
         # to reading generation_manifest.anchor_date, so the pipeline always
         # checks the anchor the source tables were actually built at rather
@@ -64,8 +69,9 @@ resources:
       name: policy_time_machine_regeneration
       description: >-
         Regenerates the synthetic dataset at today's UTC date, validates its
-        declared effect sizes, reloads the nine source Delta tables, and
-        full-refreshes the DLT pipeline. Keeps the dataset inside the
+        declared effect sizes, reloads the nine bronze Delta tables
+        (ptm_bronze), and full-refreshes the DLT pipeline into ptm_silver and
+        ptm_gold. Keeps the dataset inside the
         guaranteed-activity tail (anchor-120d, ADR-0006/spec 08 section 2)
         for judging that happens with no deploy in between.
       environments:

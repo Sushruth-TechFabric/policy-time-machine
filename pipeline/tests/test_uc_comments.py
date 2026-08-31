@@ -109,9 +109,9 @@ def test_render_emits_one_statement_per_table_and_column():
 
 
 def test_rendered_statements_are_terminated_and_qualified():
-    for statement in UC.render_statements("workspace", "policy_time_machine"):
+    for statement in UC.render_statements("workspace", "ptm_gold"):
         assert statement.endswith(";")
-        assert "`workspace`.`policy_time_machine`." in statement
+        assert "`workspace`.`ptm_gold`." in statement
         assert statement.startswith(("COMMENT ON TABLE", "COMMENT ON COLUMN"))
 
 

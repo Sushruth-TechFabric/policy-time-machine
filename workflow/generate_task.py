@@ -2,7 +2,7 @@
 
 Equivalent to running
 
-    python -m generator --seed 42 --anchor-date <run-date> --out /Volumes/workspace/policy_time_machine/raw
+    python -m generator --seed 42 --anchor-date <run-date> --out /Volumes/workspace/ptm_bronze/raw
 
 but invoked in-process, because a serverless Python task runs this file
 directly rather than a shell. ``generator/`` is synced by the bundle as a
@@ -55,10 +55,34 @@ import datetime as dt  # noqa: E402
 from generator.__main__ import main as generator_main  # noqa: E402
 
 SEED = 42
-OUT_DIR = "/Volumes/workspace/policy_time_machine/raw"
+CATALOG = "workspace"
+OUT_DIR = f"/Volumes/{CATALOG}/ptm_bronze/raw"
+
+# The medallion schemas and the bronze landing volume (ADR-0016). Ensured
+# here with IF NOT EXISTS rather than declared as bundle `schemas` resources:
+# development-mode deploys prefix bundle-managed schema names, which would
+# break every hardcoded `ptm_*` reference across the pipeline, app and Genie
+# space. This task runs first in the job, so the DDL is in place before the
+# generator writes to the volume and the DLT pipeline publishes.
+MEDALLION_DDL = (
+    f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.ptm_bronze",
+    f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.ptm_silver",
+    f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.ptm_gold",
+    f"CREATE VOLUME IF NOT EXISTS {CATALOG}.ptm_bronze.raw",
+)
+
+
+def _ensure_medallion_layout() -> None:
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+    for statement in MEDALLION_DDL:
+        print(f"[generate] {statement}")
+        spark.sql(statement)
 
 
 def main() -> int:
+    _ensure_medallion_layout()
     anchor = dt.datetime.now(dt.timezone.utc).date().isoformat()
     print(f"[generate] seed={SEED} anchor-date={anchor} out={OUT_DIR} bundle-root={_BUNDLE_ROOT}")
     return generator_main(["--seed", str(SEED), "--anchor-date", anchor, "--out", OUT_DIR])

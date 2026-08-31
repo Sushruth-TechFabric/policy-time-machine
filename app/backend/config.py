@@ -15,7 +15,7 @@ WAREHOUSE_ID = os.environ.get("DATABRICKS_WAREHOUSE_ID", "e39eb96b7df5ab0f")
 
 #: Unity Catalog catalog/schema holding the six curated tables.
 CATALOG = os.environ.get("PTM_CATALOG", "workspace")
-SCHEMA = os.environ.get("PTM_SCHEMA", "policy_time_machine")
+SCHEMA = os.environ.get("PTM_SCHEMA", "ptm_gold")
 
 #: Genie space id. Deliberately no default — when unset, Genie calls
 #: short-circuit to a structured "error" result so the rest of the

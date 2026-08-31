@@ -8,4 +8,4 @@ env:
   - name: PTM_CATALOG
     value: "workspace"
   - name: PTM_SCHEMA
-    value: "policy_time_machine"
+    value: "ptm_gold"

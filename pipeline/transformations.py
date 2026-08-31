@@ -246,6 +246,18 @@ SCHEMAS: dict[str, tuple[tuple[str, str], ...]] = {
     "policy_similarity": POLICY_SIMILARITY_SCHEMA,
 }
 
+#: The silver-layer change stream (medallion: ptm_bronze -> ptm_silver ->
+#: ptm_gold). Deliberately not in :data:`SCHEMAS`, whose keys are asserted
+#: equal to the gold tables by uc_comments and the test suite. Matches the
+#: column list :func:`derive_change_events_from_scd2` returns.
+CHANGE_EVENT_SCHEMA: tuple[tuple[str, str], ...] = (
+    ("change_event_id", "string"), ("policy_id", "string"),
+    ("endorsement_id", "string"), ("change_date", "date"),
+    ("change_category", "string"), ("coverage_line", "string"),
+    ("old_value", "string"), ("new_value", "string"),
+    ("old_value_num", "decimal"), ("new_value_num", "decimal"),
+)
+
 
 # ---------------------------------------------------------------------------
 # Small helpers

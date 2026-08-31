@@ -6,11 +6,11 @@ What the Genie space contains, what it is told, and the example SQL it learns fr
 
 ## 1. Space contents
 
-Exactly six tables, all curated (ADR-0002, 0009, 0010):
+Exactly six tables, all curated — the `ptm_gold` schema, and nothing outside it (ADR-0002, 0009, 0010, 0016):
 
 `policy_change_event` · `claim_event` · `policy_profile` · `policy_timeline_event` · `policy_pattern_match` · `policy_similarity`
 
-The SCD Type 2 history and every other source table are excluded. Exposing both a correct path and a plausible-but-wrong path in the same space produces answers that look right and are not — the worst failure mode for an investigation tool.
+The SCD Type 2 history (`ptm_bronze`), the silver `change_event` stream (`ptm_silver`) and every other non-gold table are excluded. Exposing both a correct path and a plausible-but-wrong path in the same space produces answers that look right and are not — the worst failure mode for an investigation tool.
 
 The six tables and their relationships are drawn in [`docs/diagrams/02-er-genie-space.mmd`](../diagrams/02-er-genie-space.mmd), embedded in `02-semantic-layer.md`.
 

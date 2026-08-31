@@ -1,6 +1,6 @@
 """Task 2 of the ``policy_time_machine_regeneration`` job: validate.
 
-Equivalent to `python -m generator.validate --out /Volumes/workspace/policy_time_machine/raw`,
+Equivalent to `python -m generator.validate --out /Volumes/workspace/ptm_bronze/raw`,
 invoked in-process for the same reason, and with the same ``--bundle-root``
 ``sys.path`` bootstrap, as ``generate_task.py`` (see its docstring for the
 ``__file__``-is-undefined quirk on serverless spark_python_task).
@@ -43,7 +43,7 @@ if _BUNDLE_ROOT not in sys.path:
 
 from generator.validate import main as validate_main  # noqa: E402
 
-OUT_DIR = "/Volumes/workspace/policy_time_machine/raw"
+OUT_DIR = "/Volumes/workspace/ptm_bronze/raw"
 
 
 def main() -> int:

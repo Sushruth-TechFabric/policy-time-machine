@@ -1,6 +1,6 @@
 # Semantic Layer Specification
 
-The six curated tables Genie sees, and the expectations that enforce their invariants. Built by a Lakeflow Declarative Pipeline from the source tables in `01-data-model-and-synthetic-data.md`.
+The six curated tables Genie sees, and the expectations that enforce their invariants. They are the gold layer — the `ptm_gold` schema, which is exactly the Genie space (medallion layout, ADR-0016) — built by a Lakeflow Declarative Pipeline from the bronze source tables in `01-data-model-and-synthetic-data.md` via the silver `change_event` stream in `ptm_silver`.
 
 **The SCD Type 2 tables are never exposed to Genie** (ADR-0002).
 
