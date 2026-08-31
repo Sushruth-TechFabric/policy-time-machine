@@ -39,7 +39,11 @@ resources:
       configuration:
         ptm.catalog: workspace
         ptm.schema: policy_time_machine
-        ptm.anchor_date: "2026-08-31"
+        # ptm.anchor_date deliberately unset (P8): dlt_pipeline.py falls back
+        # to reading generation_manifest.anchor_date, so the pipeline always
+        # checks the anchor the source tables were actually built at rather
+        # than a value that would drift out of sync after every scheduled
+        # regeneration.
         ptm.k: "20"
       libraries:
         - file:
@@ -48,6 +52,78 @@ resources:
             path: pipeline/transformations.py
         - file:
             path: pipeline/expectations.py
+
+  jobs:
+    # P8 — the scheduled regeneration Workflow. generate -> validate ->
+    # load_source_tables -> refresh_pipeline. Free Edition is serverless-only,
+    # so every task below omits new_cluster/existing_cluster_id: tasks 1, 2
+    # and 3 run on serverless Python compute (environment_key required for
+    # non-notebook serverless tasks) and task 4 triggers the existing
+    # serverless DLT pipeline.
+    policy_time_machine_regeneration:
+      name: policy_time_machine_regeneration
+      description: >-
+        Regenerates the synthetic dataset at today's UTC date, validates its
+        declared effect sizes, reloads the nine source Delta tables, and
+        full-refreshes the DLT pipeline. Keeps the dataset inside the
+        guaranteed-activity tail (anchor-120d, ADR-0006/spec 08 section 2)
+        for judging that happens with no deploy in between.
+      environments:
+        - environment_key: generator_env
+          spec:
+            # Environment version 5: Python 3.12, pyarrow 21.0.0 (generator
+            # needs pyarrow>=15) — fine as preinstalled. pandas is pinned up
+            # from the preinstalled 2.2.3: that version's pd.to_datetime(...,
+            # errors="coerce") defaults to nanosecond resolution and silently
+            # overflows the SCD2 open-ended sentinel (9999-12-31,
+            # generator/constants.py FAR_FUTURE) to NaT before the later
+            # .astype("datetime64[s]") cast in generator/validate.py:load()
+            # ever runs — verified by reproducing generator.validate's S6
+            # utilisation check failing under pandas==2.2.3 and passing again
+            # under pandas>=3.0 with pyarrow/numpy held fixed. generator/ is
+            # out of scope to edit here, so the fix lives in the environment.
+            environment_version: "5"
+            dependencies:
+              - "pandas>=3.0,<4"
+      tasks:
+        - task_key: generate
+          environment_key: generator_env
+          spark_python_task:
+            python_file: workflow/generate_task.py
+            # ${workspace.file_path} is the bundle's deployed "files" root in
+            # the workspace. Passed explicitly because a serverless
+            # spark_python_task does not set __file__ in the executed
+            # module's globals, so the script can't derive its own location
+            # (see generate_task.py's docstring).
+            parameters: ["--bundle-root", "${workspace.file_path}"]
+        - task_key: validate
+          depends_on:
+            - task_key: generate
+          environment_key: generator_env
+          spark_python_task:
+            python_file: workflow/validate_task.py
+            parameters: ["--bundle-root", "${workspace.file_path}"]
+        - task_key: load_source_tables
+          depends_on:
+            - task_key: validate
+          environment_key: generator_env
+          spark_python_task:
+            python_file: workflow/load_source_tables.py
+        - task_key: refresh_pipeline
+          depends_on:
+            - task_key: load_source_tables
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.policy_time_machine_pipeline.id}
+            full_refresh: true
+      schedule:
+        # Daily is far inside the staleness budget: the guaranteed-activity
+        # tail covers anchor-120d (spec 01 section 5.4 / spec 08 section 2),
+        # so a judge running the demo any day after a missed run still has
+        # up to ~119 days of slack before the tail's outer bucket runs dry.
+        quartz_cron_expression: "0 0 9 * * ?"
+        timezone_id: UTC
+        pause_status: UNPAUSED
+      max_concurrent_runs: 1
 
 targets:
   dev:

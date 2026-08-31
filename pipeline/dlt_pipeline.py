@@ -80,9 +80,13 @@ Configuration — Spark conf, set in the Asset Bundle pipeline definition
 ------------------------------------------------------------------------------
 ``ptm.catalog``      default ``workspace``
 ``ptm.schema``       default ``policy_time_machine``
-``ptm.anchor_date``  ``YYYY-MM-DD``; the generator's anchor (ADR-0006). Defaults
-                     to today, but the bundle should pass the generator's value
-                     so E17 checks the anchor the data was actually built at.
+``ptm.anchor_date``  ``YYYY-MM-DD``; the generator's anchor (ADR-0006). Left
+                     unset by the scheduled regeneration job (P8): when empty,
+                     ``ANCHOR_DATE`` is read from
+                     ``generation_manifest.anchor_date`` instead, so E17 always
+                     checks the anchor the data was actually built at, not the
+                     date the pipeline happened to run. Only set explicitly for
+                     a one-off run against a manifest-less or ad hoc dataset.
 ``ptm.k``            default 20; similarity top-K
 """
 
@@ -105,9 +109,26 @@ spark = SparkSession.getActiveSession() or SparkSession.builder.getOrCreate()
 CATALOG = spark.conf.get("ptm.catalog", "workspace")
 SCHEMA = spark.conf.get("ptm.schema", "policy_time_machine")
 K = int(spark.conf.get("ptm.k", str(T.K_NEIGHBOURS)))
-ANCHOR_DATE = _dt.date.fromisoformat(
-    spark.conf.get("ptm.anchor_date", _dt.date.today().isoformat())
-)
+
+_ANCHOR_CONF = spark.conf.get("ptm.anchor_date", "")
+if _ANCHOR_CONF:
+    ANCHOR_DATE = _dt.date.fromisoformat(_ANCHOR_CONF)
+else:
+    # ptm.anchor_date is deliberately left unset by the bundle (P8): the
+    # generator's own anchor, written to generation_manifest at emit time, is
+    # the single source of truth for what the source tables actually
+    # contain. Falling back to date.today() here would let a scheduled
+    # pipeline run silently disagree with the dataset it is reading — the
+    # anchor drifts a day off the generator's the moment the job runs after
+    # midnight relative to generation.
+    _manifest_anchor = spark.sql(
+        f"SELECT anchor_date FROM {CATALOG}.{SCHEMA}.generation_manifest LIMIT 1"
+    ).collect()[0][0]
+    ANCHOR_DATE = (
+        _manifest_anchor
+        if isinstance(_manifest_anchor, _dt.date)
+        else _dt.date.fromisoformat(str(_manifest_anchor))
+    )
 
 EXPECTATIONS = X.all_expectations(ANCHOR_DATE, K)
 
