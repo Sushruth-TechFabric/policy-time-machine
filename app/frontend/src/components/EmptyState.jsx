@@ -2,32 +2,32 @@ import './EmptyState.css';
 
 const CAPABILITIES = [
   {
-    title: 'Ask in plain English',
-    body: 'Genie turns your question into SQL against the gold policy-history tables — no query writing needed.',
+    title: 'Spot changes before claims',
+    body: 'Find policies whose coverage rose or deductible fell in the days before a loss — with the timing laid out.',
   },
   {
-    title: 'Follow up naturally',
-    body: 'Each investigation is one Genie conversation. "Now only the severe ones" refines the previous answer.',
+    title: "Follow a policy's story",
+    body: 'Mention a policy id and its full history opens alongside: every change, renewal, and claim on one dated timeline.',
   },
   {
-    title: 'Every answer shows its evidence',
-    body: 'The exact SQL Genie generated, its reading of your question, and the row count ship with every result.',
+    title: 'Compare cohorts fairly',
+    body: 'Rates always arrive with both groups and their sizes, so a difference is never shown without its context.',
   },
   {
-    title: 'Timelines, patterns & similar policies',
-    body: 'Mention a policy id and its full change-and-claim timeline opens alongside, with noteworthy patterns marked.',
+    title: 'Find similar histories',
+    body: 'Surface policies whose change-and-claim behaviour looks alike, ranked, with the reasons they match.',
   },
   {
-    title: 'Ambiguity gets a question back',
-    body: 'When a question can be read two ways, Genie asks for the missing detail instead of guessing.',
+    title: 'Verify every answer',
+    body: 'Each result carries the exact SQL that produced it and how your question was read — inspect it, copy it, rerun it.',
   },
 ];
 
-const FLOW = ['Your question', 'Genie space', 'Generated SQL', 'SQL warehouse', 'Answer + evidence'];
+const FLOW = ['Your question', 'AI analyst (Genie)', 'SQL', 'Your policy data', 'Answer + evidence'];
 
 function FlowDiagram() {
   return (
-    <div className="flow-diagram" role="img" aria-label="How an answer is produced: your question goes to the Genie space, which generates SQL, runs it on the SQL warehouse, and returns the answer with evidence">
+    <div className="flow-diagram" role="img" aria-label="How an answer is produced: your question goes to the AI analyst (Databricks Genie), which writes SQL, runs it against your policy data, and returns the answer with evidence">
       {FLOW.map((step, i) => (
         <span key={step} className="flow-step-wrap">
           {i > 0 && (
@@ -50,11 +50,11 @@ function FlowDiagram() {
 export default function EmptyState() {
   return (
     <div className="empty-state">
-      <p className="es-eyebrow">Databricks AI/BI Genie · auto policy history</p>
-      <h1 className="es-title">Ask your policy data anything.</h1>
+      <p className="es-eyebrow">Auto policy investigation workbench</p>
+      <h1 className="es-title">Understand how policies change — and what follows.</h1>
       <p className="es-lede">
-        Policy Time Machine investigates how policies changed over time and how those changes relate to
-        claims — every answer backed by the SQL that produced it.
+        Ask about coverage changes, claims, and policyholder history in plain English. Answers come back
+        as data you can inspect, chart, and verify — every one backed by the SQL that produced it.
       </p>
 
       <FlowDiagram />

@@ -5,9 +5,21 @@ import { trailLabelFor } from '../lib/trailLabel.js';
 import { normalizeGenieResult } from '../lib/normalize.js';
 
 let nodeCounter = 0;
+// Timestamp component keeps ids unique against nodes restored from an
+// earlier session, whose counters restarted from zero.
 function nextNodeId() {
   nodeCounter += 1;
-  return `node-${nodeCounter}`;
+  return `node-${Date.now().toString(36)}-${nodeCounter}`;
+}
+
+function loadStoredInvestigation(storageKey) {
+  if (!storageKey) return null;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(storageKey));
+    return Array.isArray(parsed?.trail) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 const RESET_STATUSES = new Set(['error', 'empty', 'clarification']);
@@ -29,9 +41,12 @@ function computeChipContext(activeNode, displayedTimelineId) {
  * breadcrumb's cached-view restore (ADR-0011 — clicking a node never
  * re-fetches and never sends a new thread message).
  */
-export function useInvestigation() {
-  const [trail, setTrail] = useState([]);
-  const [activeIndex, setActiveIndex] = useState(-1);
+export function useInvestigation(storageKey) {
+  const [trail, setTrail] = useState(() => loadStoredInvestigation(storageKey)?.trail ?? []);
+  const [activeIndex, setActiveIndex] = useState(() => {
+    const stored = loadStoredInvestigation(storageKey);
+    return stored ? Math.min(stored.activeIndex ?? stored.trail.length - 1, stored.trail.length - 1) : -1;
+  });
   const [manualTimelineId, setManualTimelineId] = useState(null);
   const [liveTimelineId, setLiveTimelineId] = useState(null);
   const [genieLoading, setGenieLoading] = useState(false);
@@ -77,6 +92,28 @@ export function useInvestigation() {
   const activeNode = activeIndex >= 0 ? trail[activeIndex] ?? null : null;
   const displayedTimelineId = manualTimelineId ?? (genieLoading ? liveTimelineId : activeNode?.timelinePolicyId ?? null);
   const displayedTimeline = displayedTimelineId ? resolvedTimelines[displayedTimelineId] ?? null : null;
+
+  // The trail survives a page refresh (persisted below), but resolved
+  // timelines don't — refetch whichever one the restored view is showing.
+  useEffect(() => {
+    if (displayedTimelineId && !resolvedTimelines[displayedTimelineId]) {
+      fetchTimelineSnapshot(displayedTimelineId).catch(() => {});
+    }
+  }, [displayedTimelineId, resolvedTimelines, fetchTimelineSnapshot]);
+
+  // Persist the conversation so a refresh (or tab switch tomorrow) keeps the
+  // work. The Genie conversation id itself is deliberately not persisted —
+  // after a reload, the next question starts a fresh Genie thread while the
+  // visible trail stays intact.
+  useEffect(() => {
+    if (!storageKey) return;
+    try {
+      if (trail.length === 0) window.localStorage.removeItem(storageKey);
+      else window.localStorage.setItem(storageKey, JSON.stringify({ trail, activeIndex }));
+    } catch {
+      /* storage full or unavailable — the app keeps working in-memory */
+    }
+  }, [storageKey, trail, activeIndex]);
 
   const submitQuestion = useCallback(
     async (rawQuestion) => {

@@ -13,7 +13,7 @@ export default function AppHeader({ tabs, activeId, onSelect, onClose, onNew, on
             <path d="M12 7v5l3.2 2.4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
           <span className="brand-name">Policy Time Machine</span>
-          <span className="brand-sub">Genie-powered policy history investigation</span>
+          <span className="brand-sub">Investigate policy changes, claims & patterns</span>
         </div>
       </div>
       <TabBar tabs={tabs} activeId={activeId} onSelect={onSelect} onClose={onClose} onNew={onNew} onRename={onRename} />

@@ -1,9 +1,18 @@
 .result-panel {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-4);
 }
 
 .result-panel--empty {
   min-height: 200px;
+}
+
+.conversation {
+  padding: var(--space-1) 0;
+}
+
+/* The turn the trail highlights — its timeline is the one on the left. */
+.conversation-turn--active .answer-card {
+  border-color: var(--agent-rail);
 }
 
 .answer-card {

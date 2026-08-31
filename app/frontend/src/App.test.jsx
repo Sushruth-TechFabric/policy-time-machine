@@ -76,7 +76,7 @@ describe('App smoke test (mock mode)', () => {
     // Two tabs exist; the new one is active and shows the showcase, while the
     // first tab's answer card stays mounted but hidden.
     expect(screen.getAllByRole('tab')).toHaveLength(2);
-    expect(screen.getByText('Ask your policy data anything.')).toBeVisible();
+    expect(screen.getByText('Understand how policies change — and what follows.')).toBeVisible();
     expect(document.querySelector('.result-row-count')).not.toBeVisible();
 
     // Switching back restores the first tab's result untouched.
@@ -98,6 +98,36 @@ describe('App smoke test (mock mode)', () => {
     await waitFor(() => expect(document.querySelector('.result-row-count')).not.toBeNull());
     expect(screen.getByRole('button', { name: /Fraud sweep Q3/ })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /Coverage up before claims/ })).not.toBeInTheDocument();
+  });
+
+  it('earlier answers stay on screen when a follow-up is asked (running conversation)', async () => {
+    render(<App />);
+    await ask('Show policies where coverage increased within 30 days before a claim.');
+    await waitFor(() => expect(document.querySelector('.result-row-count')).not.toBeNull());
+
+    await ask('Which material changes happen most frequently before high-severity claims?');
+    await waitFor(() => expect(document.querySelectorAll('.conversation-turn').length).toBe(2));
+
+    // Both questions are visible at once, newest last.
+    const turns = document.querySelectorAll('.conversation-turn');
+    expect(turns[0].textContent).toContain('coverage increased within 30 days');
+    expect(turns[1].textContent).toContain('material changes happen most frequently');
+  });
+
+  it('tabs, names, and answers survive a page refresh (unmount + fresh render)', async () => {
+    const first = render(<App />);
+    fireEvent.doubleClick(screen.getByRole('button', { name: /Investigation 1/ }));
+    const input = screen.getByLabelText('Rename investigation');
+    fireEvent.change(input, { target: { value: 'Q3 review' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await ask('Show policies where coverage increased within 30 days before a claim.');
+    await waitFor(() => expect(document.querySelector('.result-row-count')).not.toBeNull());
+    first.unmount();
+
+    render(<App />);
+    expect(screen.getByRole('button', { name: /Q3 review/ })).toBeInTheDocument();
+    expect(document.querySelector('.result-row-count')).not.toBeNull();
+    expect(screen.getByText(/coverage increased within 30 days/)).toBeInTheDocument();
   });
 
   it('the evidence drawer is collapsed by default and expands to show the generated SQL', async () => {

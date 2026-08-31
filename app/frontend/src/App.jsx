@@ -1,7 +1,23 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import AppHeader from './components/AppHeader.jsx';
 import InvestigationWorkspace from './components/InvestigationWorkspace.jsx';
+
+const TABS_KEY = 'ptm.tabs.v1';
+const investigationKey = (tabId) => `ptm.inv.${tabId}.v1`;
+
+function loadStoredTabs() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(TABS_KEY));
+    if (!Array.isArray(parsed?.tabs) || parsed.tabs.length === 0) return null;
+    const tabs = parsed.tabs.filter((t) => typeof t.id === 'number');
+    if (tabs.length === 0) return null;
+    const activeId = tabs.some((t) => t.id === parsed.activeId) ? parsed.activeId : tabs[0].id;
+    return { tabs, activeId };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * The app is a strip of investigation tabs over independent workspaces.
@@ -10,9 +26,18 @@ import InvestigationWorkspace from './components/InvestigationWorkspace.jsx';
  * across several lines of enquiry in parallel.
  */
 function App() {
-  const [tabs, setTabs] = useState([{ id: 1, label: null }]);
-  const [activeId, setActiveId] = useState(1);
-  const nextIdRef = useRef(2);
+  const [initial] = useState(() => loadStoredTabs() ?? { tabs: [{ id: 1, label: null }], activeId: 1 });
+  const [tabs, setTabs] = useState(initial.tabs);
+  const [activeId, setActiveId] = useState(initial.activeId);
+  const nextIdRef = useRef(initial.tabs.reduce((m, t) => Math.max(m, t.id), 1) + 1);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TABS_KEY, JSON.stringify({ tabs, activeId }));
+    } catch {
+      /* storage unavailable — tabs stay in-memory only */
+    }
+  }, [tabs, activeId]);
 
   const addTab = useCallback(() => {
     const id = nextIdRef.current;
@@ -23,6 +48,11 @@ function App() {
 
   const closeTab = useCallback(
     (id) => {
+      try {
+        window.localStorage.removeItem(investigationKey(id));
+      } catch {
+        /* nothing to clean up */
+      }
       setTabs((t) => {
         if (t.length <= 1) return t;
         const index = t.findIndex((tab) => tab.id === id);
@@ -68,6 +98,7 @@ function App() {
       {tabs.map((tab) => (
         <div key={tab.id} className="tab-panel" hidden={tab.id !== activeId}>
           <InvestigationWorkspace
+            storageKey={investigationKey(tab.id)}
             onLabel={(label) => setLabel(tab.id, label)}
             onNewInvestigation={addTab}
           />
