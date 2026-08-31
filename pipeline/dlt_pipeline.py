@@ -185,10 +185,13 @@ def _build() -> dict[str, Any]:
     claims = _source("claim")
     claim_payment = _source("claim_payment") if _exists("claim_payment") else None
 
-    # The change stream comes from the silver table below via dlt.read, so the
-    # bronze -> silver -> gold dependency is real in the pipeline graph rather
-    # than an in-memory shortcut lineage would never show (ADR-0016).
-    changes = dlt.read(SILVER_CHANGE_EVENT).toPandas()
+    # The change stream is derived in-process by the same function the silver
+    # change_event flow publishes, never read back through the catalog: on a
+    # freshly created pipeline, reading the silver MV from a gold flow races
+    # its first materialisation and returns zero rows, which every downstream
+    # expectation passes vacuously. Same function, same frame — the published
+    # silver table is lineage, not an input.
+    changes = _changes()
 
     _BUILT = T.build_all(
         changes=changes,
@@ -270,18 +273,31 @@ def _emit(table: str):
     table_properties={"quality": "silver"},
 )
 def change_event():
-    # Spec 01 §3 lists no change-event source table, yet §2 gives change events
-    # an identifier format and §4 a volume target, both of which read as
-    # generator output. Both readings are supported: consume the bronze table
-    # when the generator emits one, otherwise reconstruct the same grain by
-    # diffing the SCD Type 2 versions.
-    if _exists("change_event"):
-        changes = _source("change_event")
-    else:
-        changes = T.derive_change_events_from_scd2(
-            _source("policy_history"), _source("policy_coverage_history")
-        )
-    return _as_spark(changes, T.CHANGE_EVENT_SCHEMA)
+    return _as_spark(_changes(), T.CHANGE_EVENT_SCHEMA)
+
+
+_CHANGES: Any = None
+
+
+def _changes() -> "pd.DataFrame":
+    """The conformed change stream, computed once and shared by the silver
+    flow and the gold build.
+
+    Spec 01 §3 lists no change-event source table, yet §2 gives change events
+    an identifier format and §4 a volume target, both of which read as
+    generator output. Both readings are supported: consume the bronze table
+    when the generator emits one, otherwise reconstruct the same grain by
+    diffing the SCD Type 2 versions.
+    """
+    global _CHANGES
+    if _CHANGES is None:
+        if _exists("change_event"):
+            _CHANGES = _source("change_event")
+        else:
+            _CHANGES = T.derive_change_events_from_scd2(
+                _source("policy_history"), _source("policy_coverage_history")
+            )
+    return _CHANGES
 
 
 # ---------------------------------------------------------------------------
