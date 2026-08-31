@@ -4,12 +4,14 @@ import Trail from './components/Trail.jsx';
 import Timeline from './components/Timeline.jsx';
 import ResultPanel from './components/ResultPanel.jsx';
 import ChipRow from './components/ChipRow.jsx';
+import EmptyState from './components/EmptyState.jsx';
 import { useInvestigation } from './hooks/useInvestigation.js';
 
 /**
  * One screen, three regions, nothing else (docs/specs/06-ux-specification.md
  * §1). The fixed ~40/60 split exists only when a timeline is showing —
- * otherwise the result panel takes the full width (§2).
+ * otherwise the result panel takes the full width (§2). Before the first
+ * turn, the result region carries the capability showcase instead.
  */
 function App() {
   const {
@@ -19,6 +21,7 @@ function App() {
     displayedTimelineId,
     displayedTimeline,
     genieLoading,
+    pendingQuestion,
     bootError,
     highlightReset,
     chips,
@@ -30,6 +33,7 @@ function App() {
   } = useInvestigation();
 
   const split = Boolean(displayedTimelineId);
+  const showShowcase = trail.length === 0 && !genieLoading && !displayedTimelineId;
 
   return (
     <div className="app">
@@ -52,7 +56,16 @@ function App() {
           />
         </div>
         <div className="result-region">
-          <ResultPanel node={activeNode} loading={genieLoading} onPolicyClick={openPolicyTimeline} />
+          {showShowcase ? (
+            <EmptyState />
+          ) : (
+            <ResultPanel
+              node={activeNode}
+              loading={genieLoading}
+              pendingQuestion={pendingQuestion}
+              onPolicyClick={openPolicyTimeline}
+            />
+          )}
           <ChipRow chips={chips} onSelect={submitQuestion} disabled={genieLoading} />
         </div>
       </div>

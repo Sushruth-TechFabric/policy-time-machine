@@ -1,24 +1,101 @@
 .result-panel {
-  padding: var(--space-2) var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-4);
 }
 
 .result-panel--empty {
-  padding: 0;
+  min-height: 200px;
 }
 
-.result-header {
+.answer-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  padding: var(--space-3);
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: var(--space-1);
+  flex-direction: column;
+  gap: var(--space-2);
+  position: relative;
 }
 
-.result-row-count {
-  font-size: 12px;
+/* the agent rail — the card's left edge carries Genie's identity */
+.answer-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  background: var(--agent);
+  border-radius: 0 2px 2px 0;
+  opacity: 0.85;
+}
+
+.answer-question-label,
+.interpretation-label {
+  display: block;
+  font-size: 11px;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--ink-300);
+  margin-bottom: 4px;
+}
+
+.interpretation-label {
+  color: var(--agent);
+}
+
+.answer-question-text {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: var(--w-semibold);
+  letter-spacing: -0.01em;
+}
+
+.answer-interpretation {
+  background: var(--agent-soft);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.interpretation-text {
+  font-size: 13.5px;
+  color: var(--ink-900);
+  line-height: 1.55;
+}
+
+.answer-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.meta-pill {
+  font-size: 12px;
+  font-weight: var(--w-medium);
+  color: var(--ink-600);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+}
+
+.meta-pill--agent {
+  color: var(--agent);
+  background: var(--agent-soft);
+  border-color: var(--agent-rail);
+}
+
+.meta-pill--mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .result-table-wrap {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 460px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
@@ -29,27 +106,34 @@
 }
 
 .result-table th {
+  position: sticky;
+  top: 0;
+  background: var(--paper);
   text-align: left;
+  font-size: 11.5px;
   font-weight: var(--w-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--ink-600);
-  background: var(--panel);
-  padding: 6px var(--space-1);
-  border-bottom: 1px solid var(--line-strong);
-  white-space: nowrap;
-}
-
-.result-table td {
-  padding: 6px var(--space-1);
+  padding: 9px 14px;
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
 
-.result-table tr:last-child td {
+.result-table td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.result-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.result-table tr:hover td {
-  background: var(--panel);
+.result-table tbody tr:hover td {
+  background: var(--agent-soft);
 }
 
 .cell-numeric {
@@ -60,29 +144,40 @@
   border: none;
   background: none;
   padding: 0;
-  color: var(--interactive);
-  font-weight: var(--w-semibold);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--agent);
+  font-weight: var(--w-medium);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration-color: var(--agent-rail);
+  text-underline-offset: 3px;
+}
+
+.cell-policy-link:hover {
+  color: var(--agent-strong);
+  text-decoration-color: var(--agent);
 }
 
 .result-message {
+  padding: var(--space-2);
   border: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--paper);
   border-radius: var(--radius);
-  padding: var(--space-3);
-  max-width: 60ch;
-}
-
-.result-message p {
-  margin-top: var(--space-1);
+  font-size: 13.5px;
   color: var(--ink-600);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .result-message-title {
   font-weight: var(--w-semibold);
   color: var(--ink-900);
-  margin-top: 0 !important;
+}
+
+.result-message-hint {
+  font-size: 12.5px;
+  color: var(--ink-300);
 }
 
 .result-message--error {
@@ -95,47 +190,10 @@
 }
 
 .result-message--clarification {
-  border-color: var(--interactive);
-  background: var(--interactive-bg);
+  border-color: var(--agent-rail);
+  background: var(--agent-soft);
 }
 
 .result-message--clarification .result-message-title {
-  color: var(--interactive);
-}
-
-/* ---- Skeleton loading: opacity pulse only, no gradient sweep ---- */
-
-.result-skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-top: var(--space-2);
-}
-
-.skel-line {
-  height: 14px;
-  background: var(--line);
-  border-radius: var(--radius);
-  animation: skel-pulse 1.1s ease-in-out infinite;
-}
-
-.skel-line--title {
-  width: 40%;
-  height: 18px;
-}
-
-@keyframes skel-pulse {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skel-line {
-    animation: none;
-  }
+  color: var(--agent);
 }

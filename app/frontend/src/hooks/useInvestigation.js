@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createInvestigation, sendMessage, getTimeline, getPatterns, getSimilar, getChips } from '../api/client.js';
 import { detectPolicyIds, timelineIdFor } from '../lib/policyId.js';
 import { trailLabelFor } from '../lib/trailLabel.js';
+import { normalizeGenieResult } from '../lib/normalize.js';
 
 let nodeCounter = 0;
 function nextNodeId() {
@@ -34,6 +35,7 @@ export function useInvestigation() {
   const [manualTimelineId, setManualTimelineId] = useState(null);
   const [liveTimelineId, setLiveTimelineId] = useState(null);
   const [genieLoading, setGenieLoading] = useState(false);
+  const [pendingQuestion, setPendingQuestion] = useState(null);
   const [bootError, setBootError] = useState(null);
   const [highlightReset, setHighlightReset] = useState(false);
   const [chips, setChips] = useState([]);
@@ -89,6 +91,8 @@ export function useInvestigation() {
       const predictedId = timelineIdFor(detected);
       setLiveTimelineId(predictedId);
       setGenieLoading(true);
+      setPendingQuestion(question);
+      const startedAt = Date.now();
 
       const timelinePromise = predictedId ? fetchTimelineSnapshot(predictedId) : Promise.resolve(null);
 
@@ -103,7 +107,8 @@ export function useInvestigation() {
           question,
           detectedPolicyIds: detected,
           timelinePolicyId: predictedId,
-          genie: result.genie,
+          genie: normalizeGenieResult(result.genie),
+          elapsedMs: Date.now() - startedAt,
           label: trailLabelFor(question),
         };
         setTrail((t) => {
@@ -117,6 +122,7 @@ export function useInvestigation() {
         setHighlightReset(true);
       } finally {
         setGenieLoading(false);
+        setPendingQuestion(null);
         setLiveTimelineId(null);
       }
     },
@@ -146,7 +152,9 @@ export function useInvestigation() {
       setHighlightReset(false);
       setBootError(null);
       setGenieLoading(true);
+      setPendingQuestion(`Find policies with histories similar to ${policyId}.`);
       setLiveTimelineId(policyId);
+      const startedAt = Date.now();
       try {
         await ensureInvestigation();
         const { neighbours } = await getSimilar(policyId);
@@ -169,6 +177,7 @@ export function useInvestigation() {
           detectedPolicyIds: [policyId],
           timelinePolicyId: policyId,
           genie,
+          elapsedMs: Date.now() - startedAt,
           label: 'Similar',
         };
         setTrail((t) => {
@@ -181,6 +190,7 @@ export function useInvestigation() {
         setHighlightReset(true);
       } finally {
         setGenieLoading(false);
+        setPendingQuestion(null);
         setLiveTimelineId(null);
       }
     },
@@ -204,6 +214,7 @@ export function useInvestigation() {
     setManualTimelineId(null);
     setLiveTimelineId(null);
     setGenieLoading(false);
+    setPendingQuestion(null);
     setBootError(null);
     setHighlightReset(false);
   }, []);
@@ -227,6 +238,7 @@ export function useInvestigation() {
     displayedTimelineId,
     displayedTimeline,
     genieLoading,
+    pendingQuestion,
     bootError,
     highlightReset,
     chips,

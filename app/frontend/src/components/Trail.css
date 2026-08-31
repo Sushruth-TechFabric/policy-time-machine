@@ -1,37 +1,80 @@
 .trail {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-3) var(--space-2);
-  font-size: 13px;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px var(--space-4);
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.trail-caption {
+  font-size: 11px;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+  margin-right: var(--space-1);
 }
 
 .trail-item {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 4px;
 }
 
 .trail-sep {
-  color: var(--ink-300);
+  width: 14px;
+  height: 2px;
+  background: var(--agent-rail);
+  border-radius: 1px;
+  margin: 0 2px;
 }
 
 .trail-node {
-  border: none;
-  background: none;
-  padding: 2px 4px;
-  border-radius: var(--radius);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  background: var(--panel);
   color: var(--ink-600);
-  font-weight: var(--w-regular);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px 4px 5px;
+  font-size: 12.5px;
+  font-weight: var(--w-medium);
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.trail-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--ink-600);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  flex-shrink: 0;
 }
 
 .trail-node:hover {
-  color: var(--interactive);
+  border-color: var(--agent);
+  color: var(--agent);
 }
 
 .trail-node.active {
-  color: var(--interactive);
-  font-weight: var(--w-semibold);
-  background: var(--interactive-bg);
+  border-color: var(--agent);
+  background: var(--agent-soft);
+  color: var(--agent-strong);
+}
+
+.trail-node.active .trail-num {
+  background: var(--agent);
+  color: #fff;
 }

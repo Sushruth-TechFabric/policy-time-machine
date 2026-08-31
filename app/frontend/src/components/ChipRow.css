@@ -1,26 +1,40 @@
+.chip-row-wrap {
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+.chip-row-label {
+  display: block;
+  font-size: 11px;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+  margin-bottom: 8px;
+}
+
 .chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3) var(--space-3);
+  gap: 8px;
 }
 
 .chip {
-  border: 1px solid var(--interactive);
-  background: var(--interactive-bg);
-  color: var(--interactive);
-  border-radius: var(--radius);
-  padding: 6px var(--space-2);
-  font-size: 12px;
-  font-weight: var(--w-semibold);
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--ink-600);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 12.5px;
   text-align: left;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
 }
 
 .chip:hover:not(:disabled) {
-  background: var(--interactive);
-  color: var(--panel);
+  border-color: var(--agent);
+  color: var(--agent);
+  background: var(--agent-soft);
 }
 
 .chip:disabled {
-  opacity: 0.5;
+  color: var(--ink-300);
 }

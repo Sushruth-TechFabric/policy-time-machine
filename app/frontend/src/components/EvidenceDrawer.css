@@ -1,5 +1,4 @@
 .evidence-drawer {
-  margin-top: var(--space-2);
   border-top: 1px solid var(--line);
   padding-top: var(--space-1);
 }
@@ -7,57 +6,107 @@
 .evidence-toggle {
   border: none;
   background: none;
-  padding: 4px 0;
-  color: var(--ink-600);
-  font-size: 12px;
-  display: flex;
+  padding: 6px 0;
+  font-size: 12.5px;
+  font-weight: var(--w-medium);
+  color: var(--agent);
+  display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
 .evidence-toggle:hover {
-  color: var(--interactive);
+  color: var(--agent-strong);
 }
 
 .evidence-chevron {
-  color: var(--ink-300);
   font-size: 10px;
-  width: 8px;
 }
 
 .evidence-body {
-  margin-top: var(--space-1);
-  padding: var(--space-2);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  padding: var(--space-1) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .evidence-description {
-  color: var(--ink-900);
-  margin-bottom: var(--space-1);
+  font-size: 13px;
+  color: var(--ink-600);
 }
 
-.evidence-row-count {
+.evidence-sql-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.evidence-sql-title {
+  font-size: 11px;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+}
+
+.evidence-copy {
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
   color: var(--ink-600);
+  border-radius: var(--radius);
+  padding: 3px 10px;
   font-size: 12px;
-  margin-bottom: var(--space-1);
+  font-weight: var(--w-medium);
+}
+
+.evidence-copy:hover {
+  border-color: var(--agent);
+  color: var(--agent);
 }
 
 .evidence-sql {
   margin: 0;
-  padding: var(--space-1);
-  background: var(--paper);
-  border: 1px solid var(--line);
+  background: #1c1f2b;
+  color: #d8dcea;
   border-radius: var(--radius);
-  overflow-x: auto;
-  font-size: 12px;
+  padding: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
   line-height: 1.6;
-  color: var(--ink-900);
+  overflow-x: auto;
   white-space: pre;
 }
 
-.evidence-sql-missing {
-  color: var(--ink-300);
+.sql-keyword {
+  color: #8f96f5;
+  font-weight: var(--w-medium);
+}
+
+.sql-function {
+  color: #6fc7b7;
+}
+
+.sql-string {
+  color: #e0b774;
+}
+
+.sql-number {
+  color: #d99a9a;
+}
+
+.sql-comment {
+  color: #6b7186;
+  font-style: italic;
+}
+
+.evidence-row-count {
   font-size: 12px;
+  color: var(--ink-300);
+  font-family: var(--font-mono);
+}
+
+.evidence-sql-missing {
+  font-size: 13px;
+  color: var(--ink-300);
 }
