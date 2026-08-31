@@ -3,6 +3,7 @@ import { autoChart } from '../lib/chartRules.js';
 import { formatNumber } from '../lib/format.js';
 import BarChart from './BarChart.jsx';
 import LineChart from './LineChart.jsx';
+import ComparisonChart from './ComparisonChart.jsx';
 import EvidenceDrawer from './EvidenceDrawer.jsx';
 import AgentWorking from './AgentWorking.jsx';
 import './ResultPanel.css';
@@ -167,9 +168,18 @@ export default function ResultPanel({ node, loading, pendingQuestion, onPolicyCl
         {chart ? (
           // Aggregated shapes: the visual sits beside the rows it summarises.
           <div className="answer-visual-split">
-            {chart.type === 'line' ? (
+            {chart.type === 'comparison' && (
+              <ComparisonChart
+                rows={genie.rows}
+                textColumn={chart.textColumn}
+                measureColumn={chart.measureColumn}
+                nColumn={chart.nColumn}
+              />
+            )}
+            {chart.type === 'line' && (
               <LineChart rows={genie.rows} textColumn={chart.textColumn} numericColumn={chart.numericColumn} />
-            ) : (
+            )}
+            {chart.type === 'bar' && (
               <BarChart rows={genie.rows} textColumn={chart.textColumn} numericColumn={chart.numericColumn} />
             )}
             <ResultTable columns={genie.columns} rows={genie.rows} onPolicyClick={onPolicyClick} />

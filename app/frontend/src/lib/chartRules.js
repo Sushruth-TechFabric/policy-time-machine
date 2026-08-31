@@ -1,12 +1,14 @@
-// ADR-0007's generic renderer: a table always, and an auto-chart only when
-// the result shape is exactly one text column and one numeric column
-// (docs/specs/06-ux-specification.md §1). Anything else — including the
-// three-column cohort table and the label/rate/n comparison shape — stays
-// table-only, which is also how the comparison contract (ADR-0014) reads:
-// a chart would flatten the paired rate+n into one axis and lose the point.
+// ADR-0007's generic renderer: a table always, plus an auto-chart for two
+// recognised shapes (docs/specs/06-ux-specification.md §1):
 //
-// Within that two-column shape, the text column's content picks the form:
-// dates make it a trend (line), anything else a ranking (bar).
+// - one text + one numeric column: a ranking (bar), or a trend (line) when
+//   the text column holds dates;
+// - the label/rate/n comparison shape (ADR-0014: both groups, each with its
+//   rate and sample size): paired small multiples, one mini-chart per
+//   measure with its own axis — never one combined axis, which would
+//   flatten the paired rate+n and lose the point.
+//
+// Anything else stays table-only.
 
 const DATE_PATTERN = /^\d{4}-\d{2}(-\d{2})?([T ].*)?$/;
 
@@ -21,12 +23,30 @@ function columnIsDate(rows, name) {
   );
 }
 
+// Column names that mean "sample size" in the comparison contract's
+// label/rate/n shape. The measure is whichever numeric column isn't this.
+const N_COLUMN_PATTERN = /^n$|(^|_)(n|count|size|policies)($|_)/i;
+
+function detectComparison(columns, rows) {
+  if (columns.length !== 3 || rows.length < 2 || rows.length > 4) return null;
+  const names = columns.map((c) => c.name);
+  const numeric = names.filter((name) => columnIsNumeric(rows, name));
+  const text = names.filter((name) => !numeric.includes(name));
+  if (numeric.length !== 2 || text.length !== 1) return null;
+  const nColumn = numeric.find((name) => N_COLUMN_PATTERN.test(name)) ?? numeric[1];
+  const measureColumn = numeric.find((name) => name !== nColumn);
+  return { type: 'comparison', textColumn: text[0], measureColumn, nColumn };
+}
+
 /**
- * Returns { type: 'bar' | 'line', textColumn, numericColumn } when the
- * result qualifies for an auto chart, otherwise null.
+ * Returns the qualifying auto-chart spec, otherwise null:
+ * - { type: 'bar' | 'line', textColumn, numericColumn }
+ * - { type: 'comparison', textColumn, measureColumn, nColumn }
  */
 export function autoChart(columns, rows) {
-  if (!columns || columns.length !== 2 || !rows || rows.length === 0) return null;
+  if (!columns || !rows || rows.length === 0) return null;
+  if (columns.length === 3) return detectComparison(columns, rows);
+  if (columns.length !== 2) return null;
   const [a, b] = columns.map((c) => c.name);
   const aNumeric = columnIsNumeric(rows, a);
   const bNumeric = columnIsNumeric(rows, b);

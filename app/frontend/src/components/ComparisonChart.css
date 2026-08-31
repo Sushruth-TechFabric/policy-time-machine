@@ -1,0 +1,73 @@
+.comparison-chart {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cmp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cmp-panel-title {
+  font-size: 11.5px;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-600);
+}
+
+.cmp-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) 1fr 72px;
+  align-items: center;
+  gap: 12px;
+}
+
+.cmp-label {
+  font-size: 12.5px;
+  color: var(--ink-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+
+.cmp-track {
+  height: 10px;
+  background: var(--paper);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cmp-fill {
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+}
+
+.cmp-fill--measure {
+  background: var(--agent);
+}
+
+.cmp-fill--context {
+  background: var(--line-strong);
+}
+
+.cmp-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.cmp-footnote {
+  font-size: 11.5px;
+  color: var(--ink-300);
+  border-top: 1px dashed var(--line);
+  padding-top: var(--space-1);
+}
