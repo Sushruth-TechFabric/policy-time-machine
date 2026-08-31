@@ -12,7 +12,7 @@ flowchart TB
         dlt["DLT pipeline"]
         wfjob["Workflows job —<br/>scheduled regeneration"]
         generator["Synthetic Data Generator"]
-        uc["Unity Catalog — six curated tables<br/>(table/column comments =<br/>authored semantic layer content)"]
+        uc["Unity Catalog — medallion schemas<br/>ptm_bronze → ptm_silver → ptm_gold<br/>(gold = six curated tables; comments =<br/>authored semantic layer content)"]
     end
     judge(["Judge / User"])
     bundle["Asset Bundle"]

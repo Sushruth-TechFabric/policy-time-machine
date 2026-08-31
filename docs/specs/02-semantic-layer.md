@@ -7,7 +7,7 @@ The six curated tables Genie sees, and the expectations that enforce their invar
 The space at a glance — attributes abbreviated, full column lists in §2–§7 below (source: [`docs/diagrams/02-er-genie-space.mmd`](../diagrams/02-er-genie-space.mmd)):
 
 ```mermaid
-%% Diagram 2 — The six-table Genie space. Audience: semantic layer spec + Genie instruction spec.
+%% Diagram 2 — The six-table Genie space (the ptm_gold schema, ADR-0016). Audience: semantic layer spec + Genie instruction spec.
 %% Embedded in docs/specs/02-semantic-layer.md; linked from 03-genie-knowledge.md.
 %% Attributes are abbreviated — the full column list lives in 02-semantic-layer.md.
 %% policy_timeline_event is for reading one policy's story, never for aggregation.

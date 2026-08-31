@@ -31,8 +31,8 @@ flowchart LR
         gen["Synthetic Data Generator<br/>seeded, anchor-parameterised"]
         dlt["Lakeflow Declarative Pipeline<br/>with expectations —<br/>temporal invariants enforced at write time"]
         jobs["Similarity + Pattern jobs"]
-        subgraph gspace["Genie space — 6 curated tables"]
-            tables["Six curated Delta tables<br/>in Unity Catalog<br/>(SCD2 history upstream, never exposed)"]
+        subgraph gspace["Genie space = ptm_gold — 6 curated tables"]
+            tables["Six curated Delta tables<br/>in Unity Catalog<br/>(SCD2 history upstream in ptm_bronze, never exposed)"]
         end
         genie["Databricks Genie<br/>interprets intent; writes flat<br/>filters + group-bys only"]
         app["Policy Time Machine app<br/>Databricks Apps: React + FastAPI"]

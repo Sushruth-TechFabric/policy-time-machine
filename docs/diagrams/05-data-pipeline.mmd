@@ -4,9 +4,10 @@ flowchart LR
     sched["Workflows schedule<br/>(regeneration)"]
     seed["seed + anchor_date"]
     gen["Generator<br/>IDs from seed only · dates from anchor+offset ·<br/>deterministic scenarios + control populations ·<br/>declared effect sizes"]
-    raw["raw SCD2 policy_history<br/>+ raw claims<br/>(outside the Genie space)"]
+    raw["ptm_bronze — raw SCD2 policy_history<br/>+ raw claims<br/>(outside the Genie space)"]
     dlt["DLT with expectations —<br/>no sentinels · linkage columns NULL together ·<br/>severity bands partition · days_to_next_claim_report >= 0 ·<br/>similarity excludes self"]
-    subgraph gspace["Genie space — 6 curated tables"]
+    sil["ptm_silver.change_event —<br/>conformed change stream<br/>diffed from SCD2 versions"]
+    subgraph gspace["Genie space = ptm_gold — 6 curated tables"]
         pce["policy_change_event"]
         ce["claim_event"]
         pp["policy_profile"]
@@ -19,4 +20,4 @@ flowchart LR
 
     seed --> gen
     sched -.->|"scheduled regeneration"| gen
-    gen --> raw --> dlt --> gspace --> val --> ready
+    gen --> raw --> dlt --> sil --> gspace --> val --> ready
