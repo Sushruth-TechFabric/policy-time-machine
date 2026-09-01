@@ -241,3 +241,12 @@
 .result-message--clarification .result-message-title {
   color: var(--agent);
 }
+
+.result-message--no-access {
+  border-color: var(--agent-rail);
+  background: var(--agent-soft);
+}
+
+.result-message--no-access .result-message-title {
+  color: var(--agent);
+}

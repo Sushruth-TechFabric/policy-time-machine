@@ -114,7 +114,14 @@ export default function Timeline({ policyId, data, onFindSimilar, findSimilarBus
 
       {!data && <div className="timeline-loading">Loading {policyId}'s history…</div>}
 
-      {data && data.found === false && (
+      {data && data.noAccess && (
+        <div className="timeline-not-found">
+          You don't have access to this policy's history.
+          <div className="timeline-not-found-sub">The gold tables are governed by Unity Catalog — ask your workspace admin for access.</div>
+        </div>
+      )}
+
+      {data && !data.noAccess && data.found === false && (
         <div className="timeline-not-found">
           No policy {policyId} found.
           <div className="timeline-not-found-sub">Check the identifier and try again — an id is five digits after "P-".</div>

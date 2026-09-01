@@ -145,6 +145,21 @@ export default function ResultPanel({ node, loading, pendingQuestion, onPolicyCl
 
   const { genie, question } = node;
 
+  if (genie.status === 'no_access') {
+    return (
+      <div className="result-panel">
+        <div className="answer-card">
+          <QuestionHeader question={question} />
+          <div className="result-message result-message--no-access">
+            <p className="result-message-title">You don't have access to this data.</p>
+            <p>The policy tables behind this workbench are governed by Unity Catalog, and your account doesn't currently hold access to them.</p>
+            <p className="result-message-hint">Ask your workspace admin for access to the gold tables.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (genie.status === 'error') {
     return (
       <div className="result-panel">

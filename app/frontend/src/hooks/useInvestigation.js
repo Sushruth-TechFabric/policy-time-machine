@@ -72,9 +72,11 @@ export function useInvestigation(storageKey) {
     if (cache.has(policyId)) return cache.get(policyId);
     const promise = (async () => {
       const timeline = await getTimeline(policyId);
-      const result = !timeline.found
-        ? { found: false, events: [], patterns: [] }
-        : { found: true, events: timeline.events, patterns: (await getPatterns(policyId)).patterns ?? [] };
+      const result = timeline.no_access
+        ? { found: false, events: [], patterns: [], noAccess: true }
+        : !timeline.found
+          ? { found: false, events: [], patterns: [] }
+          : { found: true, events: timeline.events, patterns: (await getPatterns(policyId)).patterns ?? [] };
       setResolvedTimelines((prev) => ({ ...prev, [policyId]: result }));
       return result;
     })();
