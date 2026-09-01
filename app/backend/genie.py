@@ -20,6 +20,7 @@ from typing import Any
 
 from databricks.sdk import WorkspaceClient
 
+from .access import NO_ACCESS_MESSAGE, is_permission_denied
 from .config import GENIE_SPACE_ID, GENIE_TIMEOUT_SECONDS
 
 #: Terminal Genie message statuses that mean "something went wrong" as
@@ -31,7 +32,7 @@ _FAILURE_STATUSES = {"FAILED", "CANCELLED", "QUERY_RESULT_EXPIRED"}
 
 @dataclass
 class GenieResult:
-    status: str  # "ok" | "empty" | "error" | "clarification"
+    status: str  # "ok" | "empty" | "error" | "clarification" | "no_access"
     columns: list[dict[str, str]] = field(default_factory=list)
     rows: list[list[Any]] = field(default_factory=list)
     generated_sql: str | None = None
@@ -47,6 +48,10 @@ class GenieResult:
             "description": self.description,
             "error": self.error,
         }
+
+
+def _no_access_result() -> GenieResult:
+    return GenieResult(status="no_access", error=NO_ACCESS_MESSAGE)
 
 
 def ask_genie(
@@ -76,7 +81,9 @@ def ask_genie(
             message = client.genie.create_message_and_wait(
                 GENIE_SPACE_ID, conversation_id, question, timeout=timeout
             )
-    except Exception as exc:  # noqa: BLE001 - any Genie exception/timeout -> status "error"
+    except Exception as exc:  # noqa: BLE001 - any Genie exception/timeout -> structured result
+        if is_permission_denied(exc):
+            return conversation_id, _no_access_result()
         return conversation_id, GenieResult(status="error", error=str(exc))
 
     new_conversation_id = getattr(message, "conversation_id", None) or conversation_id
@@ -98,6 +105,8 @@ def _interpret_message(client: WorkspaceClient, message: Any) -> GenieResult:
             or getattr(error_obj, "message", None)
             or f"Genie could not answer the question (status: {status_name or 'unknown'})."
         )
+        if is_permission_denied(error_text):
+            return _no_access_result()
         return GenieResult(status="error", error=str(error_text))
 
     attachments = getattr(message, "attachments", None) or []
@@ -135,6 +144,8 @@ def _interpret_message(client: WorkspaceClient, message: Any) -> GenieResult:
                 space_id, conversation_id, message_id
             )
     except Exception as exc:  # noqa: BLE001 - result fetch failing is still a Genie error
+        if is_permission_denied(exc):
+            return _no_access_result()
         return GenieResult(
             status="error",
             error=str(exc),
@@ -160,12 +171,14 @@ def _interpret_message(client: WorkspaceClient, message: Any) -> GenieResult:
         # warehouse so the rows on screen are exactly the rows of the SQL
         # shown in the evidence panel.
         try:
-            from .warehouse import run_query
+            from .warehouse import WarehousePermissionError, run_query
 
             fetched = run_query(client, generated_sql)
             if fetched and isinstance(fetched[0], dict):
                 columns = [{"name": name} for name in fetched[0].keys()]
                 rows = [list(r.values()) for r in fetched]
+        except WarehousePermissionError:
+            return _no_access_result()
         except Exception:  # noqa: BLE001 - genuinely-empty stays "empty"
             pass
 
