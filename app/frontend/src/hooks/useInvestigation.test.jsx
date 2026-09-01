@@ -79,6 +79,21 @@ describe('useInvestigation — breadcrumb cached-view restore (ADR-0011)', () =>
   });
 });
 
+describe('useInvestigation — findSimilar no_access (OBO access control)', () => {
+  it('builds a no_access genie node instead of a fabricated 0-row answer when the /similar payload carries the marker', async () => {
+    const { result } = renderHook(() => useInvestigation());
+    client.getSimilar.mockResolvedValueOnce({ neighbours: [], no_access: true });
+
+    await act(async () => {
+      await result.current.findSimilar('P-18492');
+    });
+
+    expect(result.current.trail).toHaveLength(1);
+    expect(result.current.trail[0].genie.status).toBe('no_access');
+    expect(result.current.trail[0].genie.rows).toEqual([]);
+  });
+});
+
 describe('useInvestigation — New investigation reset', () => {
   it('clears the trail, active timeline and highlight so the next question starts a fresh investigation', async () => {
     const { result } = renderHook(() => useInvestigation());

@@ -196,20 +196,22 @@ export function useInvestigation(storageKey) {
       const startedAt = Date.now();
       try {
         await ensureInvestigation();
-        const { neighbours } = await getSimilar(policyId);
-        const genie = {
-          status: 'ok',
-          columns: [{ name: 'rank' }, { name: 'similar_policy_id' }, { name: 'similarity_score' }, { name: 'top_reasons' }],
-          rows: neighbours.map((n) => ({
-            rank: n.rank,
-            similar_policy_id: n.similar_policy_id,
-            similarity_score: n.similarity_score,
-            top_reasons: n.top_reasons,
-          })),
-          generated_sql: `SELECT s.rank, s.similar_policy_id, s.similarity_score, s.top_reasons\nFROM policy_similarity s\nWHERE s.policy_id = '${policyId}'\nORDER BY s.rank`,
-          description: `Top ${neighbours.length} polic${neighbours.length === 1 ? 'y' : 'ies'} with histories closest to ${policyId}, read directly from the precomputed similarity table (not a Genie query). Similarity is directional and capped at 20.`,
-          error: null,
-        };
+        const { neighbours, no_access } = await getSimilar(policyId);
+        const genie = no_access
+          ? { status: 'no_access', columns: [], rows: [], generated_sql: null, description: null, error: null }
+          : {
+              status: 'ok',
+              columns: [{ name: 'rank' }, { name: 'similar_policy_id' }, { name: 'similarity_score' }, { name: 'top_reasons' }],
+              rows: neighbours.map((n) => ({
+                rank: n.rank,
+                similar_policy_id: n.similar_policy_id,
+                similarity_score: n.similarity_score,
+                top_reasons: n.top_reasons,
+              })),
+              generated_sql: `SELECT s.rank, s.similar_policy_id, s.similarity_score, s.top_reasons\nFROM policy_similarity s\nWHERE s.policy_id = '${policyId}'\nORDER BY s.rank`,
+              description: `Top ${neighbours.length} polic${neighbours.length === 1 ? 'y' : 'ies'} with histories closest to ${policyId}, read directly from the precomputed similarity table (not a Genie query). Similarity is directional and capped at 20.`,
+              error: null,
+            };
         const node = {
           id: nextNodeId(),
           question: `Find policies with histories similar to ${policyId}.`,
