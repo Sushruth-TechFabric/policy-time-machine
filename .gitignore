@@ -21,3 +21,6 @@ generator/output/
 .DS_Store
 .gstack/
 data/
+
+# Transient Genie API payloads written by genie/build_space.py
+genie/.*_payload.json

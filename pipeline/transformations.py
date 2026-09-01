@@ -26,7 +26,7 @@ from __future__ import annotations
 import datetime as _dt
 import math
 import re
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, NamedTuple, Sequence
 
 import pandas as pd
 
@@ -245,6 +245,105 @@ SCHEMAS: dict[str, tuple[tuple[str, str], ...]] = {
     "policy_pattern_match": POLICY_PATTERN_MATCH_SCHEMA,
     "policy_similarity": POLICY_SIMILARITY_SCHEMA,
 }
+
+# ---------------------------------------------------------------------------
+# Declared keys — informational PK/FK constraints on the gold tables.
+#
+# Genie reads the join graph from Unity Catalog key metadata, so these are
+# semantic-layer content in the same sense as uc_comments.py: the preferred
+# way to teach joins is constraints, not text (docs/genie-curation.md §3).
+# Declared beside SCHEMAS so a key can never name a column that does not
+# exist; rendered into the pipeline's table DDL by constrained_schema_ddl.
+# NOT ENFORCED is the only kind Databricks supports — the pipeline's
+# expectations (expectations.py) are what actually guarantee integrity.
+# ---------------------------------------------------------------------------
+
+class ForeignKey(NamedTuple):
+    name: str
+    columns: tuple[str, ...]
+    references_table: str
+    references_columns: tuple[str, ...]
+
+
+class TableKeys(NamedTuple):
+    primary_key: tuple[str, ...]
+    foreign_keys: tuple[ForeignKey, ...] = ()
+
+
+def _fk(table: str, columns: tuple[str, ...], parent: str, parent_cols: tuple[str, ...]) -> ForeignKey:
+    return ForeignKey(f"fk_{table}_{'_'.join(columns)}", columns, parent, parent_cols)
+
+
+GOLD_KEYS: dict[str, TableKeys] = {
+    "policy_profile": TableKeys(primary_key=("policy_id",)),
+    "claim_event": TableKeys(
+        primary_key=("claim_id",),
+        foreign_keys=(
+            _fk("claim_event", ("policy_id",), "policy_profile", ("policy_id",)),
+        ),
+    ),
+    "policy_change_event": TableKeys(
+        primary_key=("change_event_id",),
+        foreign_keys=(
+            _fk("policy_change_event", ("policy_id",), "policy_profile", ("policy_id",)),
+            _fk("policy_change_event", ("next_claim_id",), "claim_event", ("claim_id",)),
+        ),
+    ),
+    "policy_timeline_event": TableKeys(
+        primary_key=("timeline_event_id",),
+        foreign_keys=(
+            _fk("policy_timeline_event", ("policy_id",), "policy_profile", ("policy_id",)),
+        ),
+    ),
+    "policy_pattern_match": TableKeys(
+        primary_key=("policy_id", "pattern_code"),
+        foreign_keys=(
+            _fk("policy_pattern_match", ("policy_id",), "policy_profile", ("policy_id",)),
+            _fk("policy_pattern_match", ("evidence_claim_id",), "claim_event", ("claim_id",)),
+            _fk("policy_pattern_match", ("evidence_change_event_id",), "policy_change_event", ("change_event_id",)),
+        ),
+    ),
+    "policy_similarity": TableKeys(
+        primary_key=("policy_id", "rank"),
+        foreign_keys=(
+            _fk("policy_similarity", ("policy_id",), "policy_profile", ("policy_id",)),
+            _fk("policy_similarity", ("similar_policy_id",), "policy_profile", ("policy_id",)),
+        ),
+    ),
+}
+
+#: Declared kind -> Spark SQL DDL type. Must agree with dlt_pipeline's
+#: _SPARK_TYPES ("decimal" is DOUBLE there too, ADR-0010 rounding rules).
+DDL_TYPES: dict[str, str] = {
+    "string": "STRING",
+    "date": "DATE",
+    "int": "INT",
+    "decimal": "DOUBLE",
+    "boolean": "BOOLEAN",
+}
+
+
+def constrained_schema_ddl(table: str, catalog: str, gold_schema: str) -> str:
+    """The gold table's schema as a DDL string carrying its key constraints.
+
+    Rendered from SCHEMAS + GOLD_KEYS so columns, types, and keys share one
+    source. FK references are fully qualified because the pipeline publishes
+    in direct publishing mode.
+    """
+    keys = GOLD_KEYS[table]
+    lines = []
+    for name, kind in SCHEMAS[table]:
+        not_null = " NOT NULL" if name in keys.primary_key else ""
+        lines.append(f"{name} {DDL_TYPES[kind]}{not_null}")
+    lines.append(f"CONSTRAINT pk_{table} PRIMARY KEY ({', '.join(keys.primary_key)})")
+    for fk in keys.foreign_keys:
+        lines.append(
+            f"CONSTRAINT {fk.name} FOREIGN KEY ({', '.join(fk.columns)})\n"
+            f"    REFERENCES {catalog}.{gold_schema}.{fk.references_table} "
+            f"({', '.join(fk.references_columns)})"
+        )
+    return ",\n  ".join(lines)
+
 
 #: The silver-layer change stream (medallion: ptm_bronze -> ptm_silver ->
 #: ptm_gold). Deliberately not in :data:`SCHEMAS`, whose keys are asserted

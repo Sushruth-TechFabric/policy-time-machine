@@ -35,7 +35,7 @@ An investigation tool for exploring how insurance policies changed over time and
 * high-severity claim means severity_band IN ('severe','catastrophic').
 * material change means is_material = true.
 * next claim / subsequent claim means the claim in next_claim_id — next by report date, not by loss date.
-* recent means within the last 90 days, unless the user gives a window. Compute it at query time from last_material_change_date, never read from a stored day-count.
+* recent means within the last 90 days, unless the user gives a window. Compute it at query time from policy_profile.last_material_change_date (the policy's latest material change; claim_event has a column of the same name anchored on that claim's loss instead), never read from a stored day-count.
 * near the limit means at_or_near_limit = true, i.e. utilisation >= 90%.
 * rapid change cluster means the rapid_change_cluster pattern; do not recompute it, read pattern_rapid_change_cluster on policy_profile or policy_pattern_match.
 * similar means a row in policy_similarity; top 20 only.

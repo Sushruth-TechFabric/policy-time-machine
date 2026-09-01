@@ -9,6 +9,7 @@ repeated runs per contract don't re-derive the same facts.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Any
 
 from databricks.sdk import WorkspaceClient
@@ -36,14 +37,6 @@ BANNED_VOCABULARY = [
     "increases the risk of",
 ]
 
-VALID_PATTERN_CODES = {
-    "change_in_loss_report_gap",
-    "claim_near_new_limit",
-    "coverage_raised_then_claimed_same_line",
-    "deductible_lowered_before_claim",
-    "rapid_change_cluster",
-    "vehicle_and_address_within_60d",
-}
 VALID_PATTERN_NAMES = {
     "Change during the loss-to-report gap",
     "Claim near a newly raised limit",
@@ -70,7 +63,6 @@ class GroundTruth:
     demo_policy_id: str
 
     # QC-01
-    qc01_window_start: str
     qc01_must_include: list[dict[str, Any]]
     qc01_must_exclude_before: str
 
@@ -95,8 +87,9 @@ class GroundTruth:
     # QC-08
     qc08_s5_ids: set[str]
 
-    # QC-09
-    qc09_top10: list[dict[str, Any]]
+    # QC-09 — every customer's summed material_change_count, so the check can
+    # accept any ordering of tied counts at the top-10 boundary.
+    qc09_counts_by_customer: dict[str, int]
 
     # QC-10
     qc10_n_recent: int
@@ -106,7 +99,6 @@ class GroundTruth:
     qc11_neighbours: list[dict[str, Any]]
 
     # QC-12
-    qc12_top_claims: list[dict[str, Any]]
     qc12_c1_top_claim_ids: set[str]
 
     # QC-14
@@ -119,25 +111,29 @@ class GroundTruth:
 
 
 def load(client: WorkspaceClient) -> GroundTruth:
-    manifest = _q(client, "SELECT anchor_date, demo_policy_id FROM ptm_bronze.generation_manifest")[0]
+    manifest = _q(
+        client,
+        f"SELECT anchor_date, demo_policy_id FROM {config.BRONZE_SCHEMA}.generation_manifest",
+    )[0]
     anchor_date = str(manifest["anchor_date"])
     demo_policy_id = manifest["demo_policy_id"] or config.DEMO_POLICY_ID
 
     # --- scenario populations -------------------------------------------------
-    def scenario_ids(scenario_id: str) -> set[str]:
-        rows = _q(
-            client,
-            f"SELECT policy_id FROM ptm_bronze.scenario_assignment WHERE scenario_id = '{scenario_id}'",
-        )
-        return _ids(rows)
+    assignment = _q(
+        client,
+        f"SELECT scenario_id, policy_id FROM {config.BRONZE_SCHEMA}.scenario_assignment",
+    )
+    by_scenario: dict[str, set[str]] = {}
+    for r in assignment:
+        by_scenario.setdefault(r["scenario_id"], set()).add(r["policy_id"])
 
-    s1 = scenario_ids("S1")
-    s2 = scenario_ids("S2")
-    s4 = scenario_ids("S4")
-    s5 = scenario_ids("S5")
-    s6 = scenario_ids("S6")
-    c1 = scenario_ids("C1")
-    c2 = scenario_ids("C2")
+    s1 = by_scenario.get("S1", set())
+    s2 = by_scenario.get("S2", set())
+    s4 = by_scenario.get("S4", set())
+    s5 = by_scenario.get("S5", set())
+    s6 = by_scenario.get("S6", set())
+    c1 = by_scenario.get("C1", set())
+    c2 = by_scenario.get("C2", set())
 
     # --- QC-01 / QC-02: demo policy timeline -----------------------------------
     timeline = _q(
@@ -150,10 +146,7 @@ def load(client: WorkspaceClient) -> GroundTruth:
         ORDER BY event_date
         """,
     )
-    window_row = _q(
-        client, f"SELECT DATE('{anchor_date}') - INTERVAL 365 DAYS AS cutoff"
-    )[0]
-    cutoff = str(window_row["cutoff"])
+    cutoff = str(date.fromisoformat(anchor_date[:10]) - timedelta(days=365))
     qc01_must_include = [
         r for r in timeline
         if str(r["event_date"]) >= cutoff
@@ -200,27 +193,37 @@ def load(client: WorkspaceClient) -> GroundTruth:
     )
 
     # --- QC-07: deductible decreased before claim, trap -------------------------
+    # Policies only reachable via a bare deductible-decrease filter: none of
+    # their decreases satisfy the before_loss + 90-day guard the question implies.
     qc07_trap = _q(
         client,
         """
         SELECT DISTINCT policy_id FROM policy_change_event
         WHERE change_category = 'deductible' AND change_direction = 'decrease'
           AND next_claim_id IS NOT NULL
-          AND NOT (change_timing = 'before_loss')
+          AND NOT (change_timing = 'before_loss' AND days_to_next_claim_loss <= 90)
+          AND policy_id NOT IN (
+              SELECT policy_id FROM policy_change_event
+              WHERE change_category = 'deductible' AND change_direction = 'decrease'
+                AND next_claim_id IS NOT NULL
+                AND change_timing = 'before_loss'
+                AND days_to_next_claim_loss <= 90
+          )
         """,
     )
 
-    # --- QC-09: table-routed, top 10 customers by material_change_count --------
-    qc09_top10 = _q(
+    # --- QC-09: table-routed, material_change_count per customer ----------------
+    qc09_rows = _q(
         client,
         """
         SELECT customer_id, SUM(material_change_count) AS material_change_count
         FROM policy_profile
         GROUP BY customer_id
-        ORDER BY material_change_count DESC, customer_id ASC
-        LIMIT 10
         """,
     )
+    qc09_counts = {
+        str(r["customer_id"]): int(r["material_change_count"] or 0) for r in qc09_rows
+    }
 
     # --- QC-10: comparison group sizes (90-day default, query-time) ------------
     groups = _q(
@@ -232,8 +235,10 @@ def load(client: WorkspaceClient) -> GroundTruth:
         FROM policy_profile GROUP BY 1
         """,
     )
-    n_recent = next(r["n"] for r in groups if r["grp"] == "recent")
-    n_not_recent = next(r["n"] for r in groups if r["grp"] == "not_recent")
+    # A group can legitimately come back empty (the dataset is frozen at
+    # anchor_date while the bucket boundary tracks CURRENT_DATE).
+    n_recent = next((r["n"] for r in groups if r["grp"] == "recent"), 0)
+    n_not_recent = next((r["n"] for r in groups if r["grp"] == "not_recent"), 0)
 
     # --- QC-11: table-routed similarity neighbours ------------------------------
     qc11_neighbours = _q(
@@ -248,10 +253,10 @@ def load(client: WorkspaceClient) -> GroundTruth:
     # --- QC-12: largest claims, must include >=1 C1 (no preceding change) ------
     qc12_top_claims = _q(
         client,
-        """
+        f"""
         SELECT cl.claim_id, cl.policy_id, cl.settled_amount, sa.scenario_id
         FROM claim_event cl
-        LEFT JOIN ptm_bronze.scenario_assignment sa ON sa.policy_id = cl.policy_id
+        LEFT JOIN {config.BRONZE_SCHEMA}.scenario_assignment sa ON sa.policy_id = cl.policy_id
         ORDER BY cl.settled_amount DESC
         LIMIT 20
         """,
@@ -270,7 +275,6 @@ def load(client: WorkspaceClient) -> GroundTruth:
     return GroundTruth(
         anchor_date=anchor_date,
         demo_policy_id=demo_policy_id,
-        qc01_window_start=cutoff,
         qc01_must_include=qc01_must_include,
         qc01_must_exclude_before=cutoff,
         qc02_loss_date=loss_date,
@@ -284,11 +288,10 @@ def load(client: WorkspaceClient) -> GroundTruth:
         qc07_exclude_ids=c1,
         qc07_trap_ids=_ids(qc07_trap),
         qc08_s5_ids=s5,
-        qc09_top10=qc09_top10,
+        qc09_counts_by_customer=qc09_counts,
         qc10_n_recent=int(n_recent),
         qc10_n_not_recent=int(n_not_recent),
         qc11_neighbours=qc11_neighbours,
-        qc12_top_claims=qc12_top_claims,
         qc12_c1_top_claim_ids=qc12_c1_top_claim_ids,
         qc14_pattern_counts=qc14_counts,
         qc15_s6_ids=s6,

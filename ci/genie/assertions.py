@@ -33,6 +33,19 @@ def find_cols_any(columns: list[str], *alternatives: tuple[str, ...]) -> int | N
     return None
 
 
+def as_number(value: Any) -> float | None:
+    """Best-effort numeric parse of a Genie cell. Statement-execution cells
+    arrive as strings and Genie's SQL controls the formatting ('1', '1.0',
+    '12,000', '$25,000'), so unparseable cells return None rather than raise.
+    """
+    if value is None:
+        return None
+    try:
+        return float(str(value).strip().replace(",", "").replace("$", ""))
+    except ValueError:
+        return None
+
+
 def col_values(result: GenieResult, idx: int | None) -> list[Any]:
     if idx is None:
         return []

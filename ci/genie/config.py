@@ -7,7 +7,6 @@ profile already logged in on this machine.
 
 import os
 
-HOST = "https://dbc-1edff070-fbb9.cloud.databricks.com"
 WAREHOUSE_ID = os.environ.get("DATABRICKS_WAREHOUSE_ID", "e39eb96b7df5ab0f")
 GENIE_SPACE_ID = os.environ.get("GENIE_SPACE_ID", "01f1a5808edd1859b78359723b7c5379")
 CATALOG = os.environ.get("PTM_CATALOG", "workspace")

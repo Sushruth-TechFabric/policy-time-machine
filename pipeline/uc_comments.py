@@ -151,7 +151,10 @@ COMMENTS: dict[str, dict[str | None, str]] = {
             "The policy's start date, denormalised. Tenure is derived at query "
             "time and never stored."
         ),
-        "policy_state": "Garaging state at the time of the change.",
+        "policy_state": (
+            "Garaging state at the time of the change, as a two-letter US "
+            "state code, e.g. CA — never the full state name."
+        ),
     },
     # -----------------------------------------------------------------------
     "claim_event": {
@@ -231,8 +234,14 @@ COMMENTS: dict[str, dict[str | None, str]] = {
         "policy_start_date": "When the policy began.",
         "term_start_date": "Start of the current term.",
         "term_end_date": "End of the current term. May legitimately be in the future.",
-        "current_city": "Current garaging city.",
-        "current_state": "Current garaging state.",
+        "current_city": (
+            "Current garaging city. Values are fictional place names, e.g. "
+            "Newbury Point; match them as given."
+        ),
+        "current_state": (
+            "Current garaging state, as a two-letter US state code, e.g. CA "
+            "— never the full state name."
+        ),
         "current_annual_premium": "Current annual premium.",
         "current_primary_vehicle": "Current primary vehicle id.",
         "current_coll_limit": "Current collision limit.",

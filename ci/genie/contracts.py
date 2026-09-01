@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from .assertions import (
+    as_number,
     banned_terms_present,
     col_values,
     extract_policy_ids,
@@ -198,11 +199,9 @@ def check_qc03(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
         if bad_dir:
             return _fail(f"Returned rows include change_direction != 'increase': {set(bad_dir)}.")
 
-    days_idx = find_col(result.columns, "days_to_next_claim_loss") or find_col(
-        result.columns, "days", "claim"
-    )
+    days_idx = find_cols_any(result.columns, ("days_to_next_claim_loss",), ("days", "claim"))
     if days_idx is not None:
-        bad_days = [v for v in col_values(result, days_idx) if v is not None and float(v) > 30]
+        bad_days = [v for v in col_values(result, days_idx) if (n := as_number(v)) is not None and n > 30]
         if bad_days:
             return _fail(f"Returned rows include days_to_next_claim_loss > 30: {bad_days[:5]}.")
 
@@ -269,7 +268,7 @@ def check_qc06(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
 
     amount_idx = find_col(result.columns, "amount")
     if amount_idx is not None:
-        low_amounts = [v for v in col_values(result, amount_idx) if v is not None and float(v) <= 25000]
+        low_amounts = [v for v in col_values(result, amount_idx) if (n := as_number(v)) is not None and n <= 25000]
         if low_amounts:
             return _fail(f"Returned rows include claim amounts <= $25,000: {low_amounts[:5]}.")
 
@@ -295,6 +294,13 @@ def check_qc07(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
     if wrong_controls:
         return _fail(f"Cohort wrongly includes C1 control policies: {sorted(wrong_controls)[:5]}...")
 
+    trapped = ids & gt.qc07_trap_ids
+    if trapped:
+        return _fail(
+            "ADR-0004 violation: cohort includes policies only reachable via a bare "
+            f"deductible-decrease filter (before_loss timing guard missing): {sorted(trapped)[:5]}..."
+        )
+
     cat_idx = find_col(result.columns, "categor")
     if cat_idx is not None:
         bad_cat = [v for v in col_values(result, cat_idx) if v != "deductible"]
@@ -307,7 +313,7 @@ def check_qc07(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
         if bad_dir:
             return _fail(f"Returned rows include change_direction != 'decrease': {set(bad_dir)}.")
 
-    line_idx = find_col(result.columns, "coverage", "line") or find_col(result.columns, "line")
+    line_idx = find_cols_any(result.columns, ("coverage", "line"), ("line",))
     if line_idx is not None:
         bad_line = [v for v in col_values(result, line_idx) if v not in ("COLL", "COMP")]
         if bad_line:
@@ -318,11 +324,9 @@ def check_qc07(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
     # window legitimately admits a C1 policy's far-prior, unrelated deductible
     # decrease, which is what the exclude-C1 assertion above would otherwise
     # be unable to distinguish from a defect.
-    days_idx = find_col(result.columns, "days_to_next_claim_loss") or find_col(
-        result.columns, "days", "claim"
-    )
+    days_idx = find_cols_any(result.columns, ("days_to_next_claim_loss",), ("days", "claim"))
     if days_idx is not None:
-        bad_days = [v for v in col_values(result, days_idx) if v is not None and float(v) > 90]
+        bad_days = [v for v in col_values(result, days_idx) if (n := as_number(v)) is not None and n > 90]
         if bad_days:
             return _fail(f"Returned rows include days_to_next_claim_loss > 90: {bad_days[:5]}.")
 
@@ -348,7 +352,7 @@ def check_qc08(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
     if offset_idx is not None:
         bad_offset = [
             v for v in col_values(result, offset_idx)
-            if v is not None and abs(float(v)) > 60
+            if (n := as_number(v)) is not None and abs(n) > 60
         ]
         if bad_offset:
             return _fail(f"Returned rows include |offset| > 60 days: {bad_offset[:5]}.")
@@ -367,10 +371,25 @@ def check_qc09(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
     if cust_idx is None:
         return _fail(f"No customer_id column found among {result.columns}.")
     returned_top = [str(row[cust_idx]) for row in result.rows[:10] if cust_idx < len(row)]
-    expected_top = [r["customer_id"] for r in gt.qc09_top10]
-    if returned_top != expected_top:
-        return _fail(f"Top-10 mismatch. Expected {expected_top}, got {returned_top}.")
-    return _ok("Top-10 customers by material_change_count match policy_profile exactly, in order.")
+    if len(returned_top) < 10:
+        return _fail(f"Expected at least 10 customers, got {len(returned_top)}: {returned_top}.")
+    if len(set(returned_top)) != len(returned_top):
+        return _fail(f"Top-10 list contains duplicate customers: {returned_top}.")
+
+    unknown = [c for c in returned_top if c not in gt.qc09_counts_by_customer]
+    if unknown:
+        return _fail(f"Returned customers not present in policy_profile: {unknown}.")
+
+    # Ties in material_change_count have no declared tiebreak the question
+    # communicates to Genie, so assert on the count sequence, not customer order.
+    returned_counts = [gt.qc09_counts_by_customer[c] for c in returned_top]
+    expected_counts = sorted(gt.qc09_counts_by_customer.values(), reverse=True)[:10]
+    if returned_counts != expected_counts:
+        return _fail(
+            f"Top-10 mismatch: returned customers carry material_change_counts {returned_counts}, "
+            f"expected the descending top-10 counts {expected_counts}."
+        )
+    return _ok("Top-10 customers match policy_profile's highest material_change_counts (tie order accepted).")
 
 
 # --------------------------------------------------------------------------
@@ -384,7 +403,14 @@ def check_qc10(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
         return _fail(f"Expected exactly two groups, got {len(result.rows)} row(s).")
 
     label_idx = find_cols_any(result.columns, ("group",), ("label",), ("comparison",), ("segment",))
-    n_idx = find_cols_any(result.columns, ("n",), ("count",), ("polic",), ("num",))
+    # A bare "n" must match a column literally named n — substring matching on
+    # a single letter would grab the group-label column instead.
+    lowered = [c.lower() for c in result.columns]
+    n_idx = (
+        lowered.index("n")
+        if "n" in lowered
+        else find_cols_any(result.columns, ("count",), ("polic",), ("num",))
+    )
     rate_idx = find_cols_any(result.columns, ("rate",), ("frequency",), ("claims_per_year",), ("avg",))
 
     if label_idx is None:
@@ -397,9 +423,8 @@ def check_qc10(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
     ns = col_values(result, n_idx)
     floor = min(gt.qc10_n_recent, gt.qc10_n_not_recent) * 0.5
     for n in ns:
-        try:
-            n_val = float(n)
-        except (TypeError, ValueError):
+        n_val = as_number(n)
+        if n_val is None:
             return _fail(f"Non-numeric n value: {n!r}.")
         if n_val <= floor:
             return _fail(
@@ -425,15 +450,17 @@ def check_qc11(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
         return _fail(f"Returned {len(result.rows)} rows; similarity is capped at 20.")
 
     rank_idx = find_col(result.columns, "rank")
-    neighbour_idx = find_col(result.columns, "similar", "polic") or find_col(result.columns, "polic", "id")
+    neighbour_idx = find_cols_any(result.columns, ("similar", "polic"), ("polic", "id"))
     if rank_idx is None or neighbour_idx is None:
         return _fail(f"No rank/neighbour-policy column pair found among {result.columns}.")
 
-    returned = [
-        (int(row[rank_idx]), str(row[neighbour_idx]))
-        for row in result.rows
-        if rank_idx < len(row) and neighbour_idx < len(row)
-    ]
+    returned = []
+    for row in result.rows:
+        if rank_idx < len(row) and neighbour_idx < len(row):
+            rank_val = as_number(row[rank_idx])
+            if rank_val is None:
+                return _fail(f"Non-numeric rank value: {row[rank_idx]!r}.")
+            returned.append((int(rank_val), str(row[neighbour_idx])))
     returned.sort(key=lambda t: t[0])
     expected = [(int(r["rank"]), str(r["similar_policy_id"])) for r in gt.qc11_neighbours]
     if returned != expected[: len(returned)] or len(returned) != len(expected):
@@ -509,7 +536,7 @@ def check_qc14(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
     bad = _require_terminal(result)
     if bad:
         return bad
-    name_idx = find_col(result.columns, "pattern", "name") or find_col(result.columns, "pattern")
+    name_idx = find_cols_any(result.columns, ("pattern", "name"), ("pattern",))
     count_idx = find_cols_any(result.columns, ("count",), ("polic",), ("n",))
     if name_idx is None:
         return _fail(f"No pattern_name column found among {result.columns}.")
@@ -524,7 +551,7 @@ def check_qc14(result: GenieResult, gt: GroundTruth) -> CheckOutcome:
         mismatches = []
         for row in result.rows:
             name = row[name_idx]
-            got = row[count_idx] if count_idx < len(row) else None
+            got = as_number(row[count_idx]) if count_idx < len(row) else None
             expected = gt.qc14_pattern_counts.get(name)
             if expected is not None and got is not None and int(got) != expected:
                 mismatches.append((name, got, expected))
@@ -580,8 +607,8 @@ class Contract:
 
 
 CONTRACTS: list[Contract] = [
-    Contract("QC-01", "cohort", f"What changed on policy {{demo}} during the last year?", None, check_qc01),
-    Contract("QC-02", "cohort", f"What changed before the latest claim on {{demo}}?", None, check_qc02),
+    Contract("QC-01", "cohort", "What changed on policy {demo} during the last year?", None, check_qc01),
+    Contract("QC-02", "cohort", "What changed before the latest claim on {demo}?", None, check_qc02),
     Contract(
         "QC-03", "cohort", "Show policies where coverage increased within 30 days before a claim.", None, check_qc03
     ),
@@ -631,7 +658,7 @@ CONTRACTS: list[Contract] = [
         check_qc10,
     ),
     Contract(
-        "QC-11", "table-routed", f"Find policies with histories similar to {{demo}}.", None, check_qc11
+        "QC-11", "table-routed", "Find policies with histories similar to {demo}.", None, check_qc11
     ),
     Contract(
         "QC-12", "cohort", "What happened immediately before the largest claims?", None, check_qc12

@@ -10,10 +10,11 @@ comments Genie also reads) — the two render from one source per ADR-0013.
 
 Usage
 -----
-    python build_space.py render          # write instructions.md + examples.sql
-    python build_space.py show            # print the serialized_space JSON
-    python build_space.py create          # POST a new space, print its id
-    python build_space.py update SPACE_ID # PUT (full replace) an existing space
+    python build_space.py render           # write instructions.md + examples.sql + functions.sql
+    python build_space.py show             # print the serialized_space JSON
+    python build_space.py create           # POST a new space, print its id
+    python build_space.py update SPACE_ID  # PUT (full replace) an existing space
+    python build_space.py create-functions # register trusted-asset UC functions
 
 ``create`` / ``update`` shell out to the ``databricks`` CLI (profile DEFAULT)
 so this script has no SDK/network dependency beyond the CLI already used to
@@ -117,7 +118,7 @@ INSTRUCTION_BLOCKS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "high-severity claim means severity_band IN ('severe','catastrophic').",
             "material change means is_material = true.",
             "next claim / subsequent claim means the claim in next_claim_id — next by report date, not by loss date.",
-            "recent means within the last 90 days, unless the user gives a window. Compute it at query time from last_material_change_date, never read from a stored day-count.",
+            "recent means within the last 90 days, unless the user gives a window. Compute it at query time from policy_profile.last_material_change_date (the policy's latest material change; claim_event has a column of the same name anchored on that claim's loss instead), never read from a stored day-count.",
             "near the limit means at_or_near_limit = true, i.e. utilisation >= 90%.",
             "rapid change cluster means the rapid_change_cluster pattern; do not recompute it, read pattern_rapid_change_cluster on policy_profile or policy_pattern_match.",
             "similar means a row in policy_similarity; top 20 only.",
@@ -352,6 +353,69 @@ ORDER BY b.claim_count DESC""",
     ),
 )
 
+# ---------------------------------------------------------------------------
+# Trusted-asset SQL functions — business logic defined in SQL, per the Genie
+# guidance to prefer SQL over text for semantics. Registered in ptm_gold via
+# `build_space.py create-functions`, then attached to the space as trusted
+# assets. Each encodes a rule the instructions can otherwise only describe:
+# the two-filter claim window, and precomputed-only similarity.
+# ---------------------------------------------------------------------------
+
+FUNCTIONS: tuple[tuple[str, str], ...] = (
+    (
+        "similar_histories",
+        """CREATE OR REPLACE FUNCTION {catalog}.{schema}.similar_histories(
+  p_policy_id STRING COMMENT 'The policy whose similar histories to return, e.g. P-10155'
+)
+RETURNS TABLE (
+  rank INT,
+  similar_policy_id STRING,
+  similarity_score DOUBLE,
+  top_reasons STRING,
+  material_change_count INT,
+  claim_count INT,
+  noteworthy_pattern_count INT
+)
+COMMENT 'The top-20 policies whose histories most resemble the given policy, each with its profile summary. Similarity is precomputed and directional; a match is a historical pattern, never an assertion about a person.'
+RETURN SELECT s.rank, s.similar_policy_id, s.similarity_score, s.top_reasons,
+       p.material_change_count, p.claim_count, p.noteworthy_pattern_count
+FROM {catalog}.{schema}.policy_similarity s
+JOIN {catalog}.{schema}.policy_profile p ON p.policy_id = s.similar_policy_id
+WHERE s.policy_id = p_policy_id
+ORDER BY s.rank""",
+    ),
+    (
+        "material_changes_before_claims",
+        """CREATE OR REPLACE FUNCTION {catalog}.{schema}.material_changes_before_claims(
+  p_days INT COMMENT 'Window in days before the linked claim, e.g. 30'
+)
+RETURNS TABLE (
+  policy_id STRING,
+  change_date DATE,
+  change_category STRING,
+  coverage_line STRING,
+  days_to_next_claim_loss INT,
+  next_claim_id STRING,
+  next_claim_amount DOUBLE,
+  next_claim_severity STRING
+)
+COMMENT 'Material policy changes that occurred within p_days days before the linked claim happened. Encodes the required two-filter window (change_timing = before_loss AND days_to_next_claim_loss <= p_days); a bare day-count filter is always wrong.'
+RETURN SELECT policy_id, change_date, change_category, coverage_line,
+       days_to_next_claim_loss, next_claim_id, next_claim_amount, next_claim_severity
+FROM {catalog}.{schema}.policy_change_event
+WHERE is_material = true
+  AND change_timing = 'before_loss'
+  AND days_to_next_claim_loss <= p_days
+ORDER BY days_to_next_claim_loss""",
+    ),
+)
+
+
+def function_ddl(name: str) -> str:
+    ddl = dict(FUNCTIONS)[name]
+    return ddl.format(catalog=CATALOG, schema=SCHEMA)
+
+
 # A handful of curated starter prompts shown in the Genie UI before the user
 # types anything (config.sample_questions). A subset of EXAMPLE_QUERIES plus
 # one referencing the demo policy P-10155.
@@ -397,6 +461,10 @@ def _validate() -> None:
         violations = vocabulary_violations(q)
         if violations:
             raise AssertionError(f"sample question {q!r} uses banned vocabulary: {violations}")
+    for name, _ in FUNCTIONS:
+        violations = vocabulary_violations(name) + vocabulary_violations(function_ddl(name))
+        if violations:
+            raise AssertionError(f"function {name!r} uses banned vocabulary: {violations}")
     violations = vocabulary_violations(DESCRIPTION)
     if violations:
         raise AssertionError(f"description uses banned vocabulary: {violations}")
@@ -440,6 +508,19 @@ def render_examples_sql() -> str:
     for question, sql in EXAMPLE_QUERIES:
         lines.append(f"-- Q: {question}")
         lines.append(sql.rstrip() + ";")
+        lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def render_functions_sql() -> str:
+    lines = [
+        "-- Trusted-asset SQL functions for the Genie space.",
+        "-- Rendered from genie/build_space.py; do not edit by hand.",
+        "-- Registered with: python build_space.py create-functions",
+        "",
+    ]
+    for name, _ in FUNCTIONS:
+        lines.append(function_ddl(name) + ";")
         lines.append("")
     return "\n".join(lines) + "\n"
 
@@ -489,6 +570,19 @@ def serialized_space() -> str:
                     "content": _content_lines(_all_instructions_text()),
                 }
             ],
+            # Trusted-asset UC functions (registered by `create-functions`),
+            # attached by fully qualified name. Field shape verified against
+            # the API: {id, identifier}, unknown fields are rejected.
+            "sql_functions": sorted(
+                (
+                    {
+                        "id": _stable_id(f"function-{name}"),
+                        "identifier": f"{CATALOG}.{SCHEMA}.{name}",
+                    }
+                    for name, _ in FUNCTIONS
+                ),
+                key=lambda d: d["id"],
+            ),
             # API requires sorting by id.
             "example_question_sqls": sorted(
                 (
@@ -525,8 +619,29 @@ def cmd_render() -> None:
     here = Path(__file__).resolve().parent
     (here / "instructions.md").write_text(render_instructions_md())
     (here / "examples.sql").write_text(render_examples_sql())
+    (here / "functions.sql").write_text(render_functions_sql())
     print(f"wrote {here / 'instructions.md'}")
     print(f"wrote {here / 'examples.sql'}")
+    print(f"wrote {here / 'functions.sql'}")
+
+
+def cmd_create_functions() -> None:
+    """Register the trusted-asset functions via the SQL statement API."""
+    for name, _ in FUNCTIONS:
+        body = {
+            "statement": function_ddl(name),
+            "warehouse_id": WAREHOUSE_ID,
+            "wait_timeout": "50s",
+        }
+        payload_path = Path(__file__).resolve().parent / ".create_function_payload.json"
+        payload_path.write_text(json.dumps(body))
+        out = _run([_databricks_cli(), "api", "post", "/api/2.0/sql/statements",
+                    "--json", f"@{payload_path}"])
+        status = json.loads(out).get("status", {})
+        print(f"{CATALOG}.{SCHEMA}.{name}: {status.get('state', 'UNKNOWN')}")
+        if status.get("state") != "SUCCEEDED":
+            sys.stderr.write(out)
+            raise SystemExit(1)
 
 
 def cmd_show() -> None:
@@ -571,6 +686,8 @@ def main(argv: list[str] | None = None) -> int:
         cmd_render()
     elif cmd == "show":
         cmd_show()
+    elif cmd == "create-functions":
+        cmd_create_functions()
     elif cmd == "create":
         cmd_create()
     elif cmd == "update":

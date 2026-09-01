@@ -124,6 +124,17 @@ K = int(spark.conf.get("ptm.k", str(T.K_NEIGHBOURS)))
 # publishing mode resolves the fully qualified name in @dlt.table and dlt.read.
 SILVER_CHANGE_EVENT = f"{CATALOG}.{SILVER_SCHEMA}.change_event"
 
+# Where the unqualified gold tables publish (bundle `schema:`); needed only to
+# fully qualify FK REFERENCES targets in the gold schema DDL.
+GOLD_SCHEMA = spark.conf.get("ptm.gold_schema", "ptm_gold")
+
+
+def _gold_schema_ddl(table: str) -> str:
+    """The declared schema plus informational PK/FK constraints (T.GOLD_KEYS),
+    so Genie reads the join graph from Unity Catalog rather than from text.
+    Constraints are NOT ENFORCED; the expectations remain the guarantee."""
+    return T.constrained_schema_ddl(table, CATALOG, GOLD_SCHEMA)
+
 _ANCHOR_CONF = spark.conf.get("ptm.anchor_date", "")
 if _ANCHOR_CONF:
     ANCHOR_DATE = _dt.date.fromisoformat(_ANCHOR_CONF)
@@ -306,6 +317,7 @@ def _changes() -> "pd.DataFrame":
 
 @dlt.table(
     name="policy_change_event",
+    schema=_gold_schema_ddl("policy_change_event"),
     comment="One row per field change on a policy, material or otherwise. "
             "next_claim_id is the first claim reported at or after the change "
             "and is many-to-one by design.",
@@ -313,22 +325,27 @@ def _changes() -> "pd.DataFrame":
 )
 @dlt.expect_all_or_fail(EXPECTATIONS["policy_change_event"])
 def policy_change_event():
+    dlt.read("policy_profile")  # FK parent — its PK must exist before this flow declares the FK
+    dlt.read("claim_event")  # FK parent — its PK must exist before this flow declares the FK
     return _emit("policy_change_event")
 
 
 @dlt.table(
     name="claim_event",
+    schema=_gold_schema_ddl("claim_event"),
     comment="One row per claim. The table for claim-level counting. All "
             "prior-change context is anchored on loss_date.",
     table_properties={"quality": "gold"},
 )
 @dlt.expect_all_or_fail(EXPECTATIONS["claim_event"])
 def claim_event():
+    dlt.read("policy_profile")  # FK parent — its PK must exist before this flow declares the FK
     return _emit("claim_event")
 
 
 @dlt.table(
     name="policy_pattern_match",
+    schema=_gold_schema_ddl("policy_pattern_match"),
     comment="One row per policy and matched noteworthy pattern. Rules are named "
             "and deterministic; a match makes a policy an investigation "
             "candidate and asserts nothing about a person.",
@@ -336,11 +353,15 @@ def claim_event():
 )
 @dlt.expect_all_or_fail(EXPECTATIONS["policy_pattern_match"])
 def policy_pattern_match():
+    dlt.read("policy_profile")  # FK parent — its PK must exist before this flow declares the FK
+    dlt.read("claim_event")  # FK parent — its PK must exist before this flow declares the FK
+    dlt.read("policy_change_event")  # FK parent — its PK must exist before this flow declares the FK
     return _emit("policy_pattern_match")
 
 
 @dlt.table(
     name="policy_profile",
+    schema=_gold_schema_ddl("policy_profile"),
     comment="One row per policy: current state, behavioural summary, recency "
             "dates and the noteworthy pattern flags. Recency is stored as dates, "
             "never as day counts.",
@@ -353,17 +374,20 @@ def policy_profile():
 
 @dlt.table(
     name="policy_timeline_event",
+    schema=_gold_schema_ddl("policy_timeline_event"),
     comment="For reading one policy's history. Do not aggregate; this table "
             "mixes grains.",
     table_properties={"quality": "gold"},
 )
 @dlt.expect_all_or_fail(EXPECTATIONS["policy_timeline_event"])
 def policy_timeline_event():
+    dlt.read("policy_profile")  # FK parent — its PK must exist before this flow declares the FK
     return _emit("policy_timeline_event")
 
 
 @dlt.table(
     name="policy_similarity",
+    schema=_gold_schema_ddl("policy_similarity"),
     comment="Pre-computed nearest neighbours by behavioural history, top 20 per "
             "policy. Directional: A appearing in B's list does not imply the "
             "reverse.",
@@ -371,6 +395,7 @@ def policy_timeline_event():
 )
 @dlt.expect_all_or_fail(EXPECTATIONS["policy_similarity"])
 def policy_similarity():
+    dlt.read("policy_profile")  # FK parent — its PK must exist before this flow declares the FK
     return _emit("policy_similarity")
 
 
