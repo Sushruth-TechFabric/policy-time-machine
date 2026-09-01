@@ -50,7 +50,9 @@ export default function TabBar({ tabs, activeId, onSelect, onClose, onNew, onRen
               <RenameInput
                 initial={displayLabel}
                 onCommit={(value) => {
-                  onRename(tab.id, value);
+                  // An untouched commit (double-click, then click away) must
+                  // not turn the rendered fallback into a sticky custom label.
+                  if (value !== displayLabel) onRename(tab.id, value);
                   setEditingId(null);
                 }}
                 onCancel={() => setEditingId(null)}

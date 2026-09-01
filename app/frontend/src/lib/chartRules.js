@@ -33,7 +33,12 @@ function detectComparison(columns, rows) {
   const numeric = names.filter((name) => columnIsNumeric(rows, name));
   const text = names.filter((name) => !numeric.includes(name));
   if (numeric.length !== 2 || text.length !== 1) return null;
-  const nColumn = numeric.find((name) => N_COLUMN_PATTERN.test(name)) ?? numeric[1];
+  // Measure names commonly end in _count/_size too (claim_count), so prefer
+  // an exact whole-name match, then a unique token match; when both numerics
+  // match ambiguously, fall back to position — Genie's SELECT puts n last.
+  const exact = numeric.find((name) => /^(n|count|size|policies|sample_size)$/i.test(name));
+  const tokenMatches = numeric.filter((name) => N_COLUMN_PATTERN.test(name));
+  const nColumn = exact ?? (tokenMatches.length === 1 ? tokenMatches[0] : numeric[1]);
   const measureColumn = numeric.find((name) => name !== nColumn);
   return { type: 'comparison', textColumn: text[0], measureColumn, nColumn };
 }

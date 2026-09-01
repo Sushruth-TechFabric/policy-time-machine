@@ -81,7 +81,9 @@ function App() {
     setTabs((t) => t.map((tab) => (tab.id === id
       ? trimmed
         ? { ...tab, label: trimmed, custom: true }
-        : { ...tab, custom: false }
+        // Clearing the name reverts to the auto-name path immediately: the
+        // label must go too, or the stale custom text keeps rendering.
+        : { ...tab, label: null, custom: false }
       : tab)));
   }, []);
 
