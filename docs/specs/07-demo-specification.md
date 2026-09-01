@@ -112,7 +112,19 @@ Keep this beat brisk — it demonstrates maturity, not a headline capability.
 
 ---
 
-## 9. Close (30s)
+## 9. Beat eight — governance (25s)
+
+Before recording: ownership of the gold schema sits with the app's service principal, the demo account holds an explicit `GRANT SELECT`, and the one-time OBO consent prompt has already been accepted (rehearsal rule 7).
+
+In a SQL editor tab, run the prepared `REVOKE SELECT` on the gold schema. Switch back to the app and refresh. Ask one question; open the timeline.
+
+> Same screen, same questions — no data. The app asks Genie and the warehouse **as you**, and Unity Catalog just said no. Access isn't an app feature that can drift out of sync with governance; it *is* governance. Revoke a grant and every path — answers, timelines, evidence — goes quiet together.
+
+Run the prepared `GRANT SELECT` back, refresh, ask the same question — results return. Keep the SQL editor visible for both statements; the enforcement being outside the app is the point of the beat.
+
+---
+
+## 10. Close (30s)
 
 Return to the first tab. Scroll the conversation top to bottom, then point at the numbered trail across the top.
 
@@ -120,11 +132,11 @@ Return to the first tab. Scroll the conversation top to bottom, then point at th
 
 Then one line on the platform, naming the native services deliberately:
 
-> Everything you saw is Databricks-native: Genie over six curated gold tables in Unity Catalog, built by a Lakeflow declarative pipeline where every temporal invariant is an enforced expectation, regenerated on a schedule by Workflows, served by a Databricks App, and deployed as one Asset Bundle you can run in your own workspace and reproduce this demo.
+> Everything you saw is Databricks-native: Genie over six curated gold tables in Unity Catalog, built by a Lakeflow declarative pipeline where every temporal invariant is an enforced expectation, regenerated on a schedule by Workflows, served by a Databricks App that acts on behalf of the signed-in user so Unity Catalog governs every query, and deployed as one Asset Bundle you can run in your own workspace and reproduce this demo.
 
 ---
 
-## 10. Rehearsal rules
+## 11. Rehearsal rules
 
 1. **The thread is linear.** Trail clicks are cached scroll-backs, never a rewind of the Genie conversation — so never phrase a follow-up as though an earlier turn were the latest one. The divergence is documented but must stay off stage (ADR-0011).
 2. **Regenerate, then rehearse.** Every beat depends on planted scenarios; run the query contract suite after regeneration and before recording, and record against that same dataset (spec 08 §7 — the recording and the tested dataset must be the same dataset).
@@ -132,9 +144,10 @@ Then one line on the platform, naming the native services deliberately:
 4. **Relative language only** in the script and voiceover.
 5. **The evidence panel opens at least twice.** It is the fastest proof that the semantics are real rather than narrated.
 6. **Never say fraud.** Not once, not casually, not as a joke about what the tool doesn't do. The approved vocabulary governs the voiceover as strictly as it governs the UI.
+7. **The governance beat is pre-flighted.** Ownership transfer, the explicit grant, and the OBO consent prompt all happen before recording; the revoke/grant statements sit ready in a SQL editor tab. Verify the revoke actually bites (a direct `SELECT` must fail) before the camera rolls.
 
 ---
 
-## 11. Fallback
+## 12. Fallback
 
 If Genie is slow or fails during recording, the timeline still renders — it never blocks on Genie, and the working card shows the product handling the wait honestly. Re-record the beat rather than editing around it; a visible retry is better than a cut that hides how the product behaves.

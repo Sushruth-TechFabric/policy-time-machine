@@ -28,6 +28,9 @@ resources:
       name: policy-time-machine
       description: "Policy Time Machine — deploy-envelope smoke test (task zero)"
       source_code_path: ./app
+      user_api_scopes:
+        - dashboards.genie
+        - sql
 
   pipelines:
     policy_time_machine_pipeline:
