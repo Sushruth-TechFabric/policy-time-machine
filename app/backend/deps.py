@@ -1,16 +1,28 @@
 """FastAPI dependency wiring for the Databricks SDK client.
 
-A single indirection point so tests can override `get_client` with a
-mock via `app.dependency_overrides` instead of touching a real
-workspace. Inside Databricks Apps, `WorkspaceClient()` auto-authenticates
-from the runtime; locally it uses the DEFAULT CLI profile.
+On-behalf-of-user auth: inside Databricks Apps, the platform forwards
+the viewer's downscoped OAuth token as `x-forwarded-access-token`
+(declared via the app's `user_api_scopes`). When present, every SDK
+call this request makes — Genie, evidence re-runs, deterministic
+queries — executes as the viewer, so Unity Catalog grants are the
+single enforcement point. Without the header (local dev, tests), the
+cached app-identity client is used, and tests override `get_client`
+via `app.dependency_overrides` exactly as before.
 """
 
 from functools import lru_cache
 
 from databricks.sdk import WorkspaceClient
+from fastapi import Request
 
 
 @lru_cache(maxsize=1)
-def get_client() -> WorkspaceClient:
+def _app_client() -> WorkspaceClient:
     return WorkspaceClient()
+
+
+def get_client(request: Request) -> WorkspaceClient:
+    token = request.headers.get("x-forwarded-access-token")
+    if not token:
+        return _app_client()
+    return WorkspaceClient(host=_app_client().config.host, token=token, auth_type="pat")

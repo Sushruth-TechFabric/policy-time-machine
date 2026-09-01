@@ -23,7 +23,7 @@ from .genie import ask_genie
 from .investigations import InvestigationNotFoundError, store
 from .policy_ids import detect_policy_ids, resolve_timeline_policy_id
 from .queries import get_patterns, get_similar, get_timeline
-from .warehouse import WarehouseError
+from .warehouse import WarehouseError, WarehousePermissionError
 
 app = FastAPI(title="Policy Time Machine")
 
@@ -68,19 +68,28 @@ def post_message(investigation_id: str, body: MessageRequest, client: WorkspaceC
 
 @app.get("/api/policies/{policy_id}/timeline")
 def policy_timeline(policy_id: str, client: WorkspaceClient = Depends(get_client)) -> dict:
-    events = _run_deterministic(get_timeline, client, policy_id)
+    try:
+        events = _run_deterministic(get_timeline, client, policy_id)
+    except WarehousePermissionError:
+        return {"found": False, "events": [], "no_access": True}
     return {"found": len(events) > 0, "events": events}
 
 
 @app.get("/api/policies/{policy_id}/similar")
 def policy_similar(policy_id: str, client: WorkspaceClient = Depends(get_client)) -> dict:
-    neighbours = _run_deterministic(get_similar, client, policy_id)
+    try:
+        neighbours = _run_deterministic(get_similar, client, policy_id)
+    except WarehousePermissionError:
+        return {"neighbours": [], "no_access": True}
     return {"neighbours": neighbours}
 
 
 @app.get("/api/policies/{policy_id}/patterns")
 def policy_patterns(policy_id: str, client: WorkspaceClient = Depends(get_client)) -> dict:
-    patterns = _run_deterministic(get_patterns, client, policy_id)
+    try:
+        patterns = _run_deterministic(get_patterns, client, policy_id)
+    except WarehousePermissionError:
+        return {"patterns": [], "no_access": True}
     return {"patterns": patterns}
 
 
@@ -90,12 +99,16 @@ def chips(context: str = Query(...)) -> dict:
 
 
 def _run_deterministic(fn, client: WorkspaceClient, policy_id: str) -> list[dict[str, Any]]:
-    """Run a deterministic warehouse read, turning failures into a clean
-    HTTP error instead of a crash (VERIFY: timeline may 502 locally
-    without tables — that's fine, it must not take the process down).
+    """Run a deterministic warehouse read. No access propagates as its
+    own state for the endpoint to shape; any other failure becomes a
+    clean HTTP error instead of a crash (VERIFY: timeline may 502
+    locally without tables — that's fine, it must not take the process
+    down).
     """
     try:
         return fn(client, policy_id)
+    except WarehousePermissionError:
+        raise
     except WarehouseError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

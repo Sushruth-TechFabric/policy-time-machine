@@ -68,3 +68,23 @@ def test_similar_and_patterns_also_never_touch_genie(api, mock_client):
     assert patterns_resp.status_code == 200
     mock_client.genie.start_conversation_and_wait.assert_not_called()
     mock_client.genie.create_message_and_wait.assert_not_called()
+
+
+def test_timeline_no_access_is_a_state_not_an_error(api, mock_client):
+    from databricks.sdk.errors import PermissionDenied
+
+    mock_client.statement_execution.execute_statement.side_effect = PermissionDenied("nope")
+
+    resp = api.get("/api/policies/P-18492/timeline")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"found": False, "events": [], "no_access": True}
+
+
+def test_similar_and_patterns_no_access_payloads(api, mock_client):
+    from databricks.sdk.errors import PermissionDenied
+
+    mock_client.statement_execution.execute_statement.side_effect = PermissionDenied("nope")
+
+    assert api.get("/api/policies/P-18492/similar").json() == {"neighbours": [], "no_access": True}
+    assert api.get("/api/policies/P-18492/patterns").json() == {"patterns": [], "no_access": True}
