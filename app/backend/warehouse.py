@@ -13,6 +13,7 @@ from typing import Any
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.sql import StatementParameterListItem, StatementState
 
+from .access import NO_ACCESS_MESSAGE, is_permission_denied
 from .config import CATALOG, SCHEMA, WAREHOUSE_ID
 
 #: How long to keep polling `get_statement` after the initial synchronous
@@ -28,6 +29,14 @@ class WarehouseError(RuntimeError):
     Callers turn this into a clean HTTP error rather than a crash — the
     app must keep serving other endpoints (chips, health) even when the
     warehouse or the curated tables are unavailable.
+    """
+
+
+class WarehousePermissionError(WarehouseError):
+    """The viewer lacks Unity Catalog access to the curated tables.
+
+    A governance fact, not a fault — callers render a no-access state
+    rather than an error (OBO access control design, 2026-08-31).
     """
 
 
@@ -54,12 +63,17 @@ def run_query(
     except WarehouseError:
         raise
     except Exception as exc:  # noqa: BLE001 - surfaced as a clean error upstream
+        if is_permission_denied(exc):
+            raise WarehousePermissionError(NO_ACCESS_MESSAGE) from exc
         raise WarehouseError(str(exc)) from exc
 
     status = getattr(response, "status", None)
     if status is None or status.state != StatementState.SUCCEEDED:
         error = getattr(status, "error", None) if status else None
         message = getattr(error, "message", None) or f"statement did not succeed: {status}"
+        code_and_message = f"{getattr(error, 'error_code', '') or ''} {message}"
+        if is_permission_denied(code_and_message):
+            raise WarehousePermissionError(NO_ACCESS_MESSAGE)
         raise WarehouseError(message)
 
     columns: list[str] = []
