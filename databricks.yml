@@ -21,6 +21,27 @@ sync:
     - app/frontend/vite.config.js
     - app/frontend/.oxlintrc.json
     - app/frontend/package*.json
+    # Workspace files are visible to anyone with workspace access; only the
+    # runtime set belongs there. Everything below is local tooling, docs, or
+    # tests with no deployed resource referencing it.
+    - demo/**
+    # docs/ is excluded piecewise so docs/diagrams/ (the architecture story,
+    # source + rendered SVG) stays visible in the workspace.
+    - docs/adr/**
+    - docs/specs/**
+    - docs/superpowers/**
+    - docs/genie-curation.md
+    - ci/**
+    - genie/**
+    - .github/**
+    - CONTEXT.md
+    - app/backend/tests/**
+    - pipeline/tests/**
+    - pipeline/uc_comments.py
+    - pipeline/pytest.ini
+    - pipeline/requirements-dev.txt
+    - generator/tests/**
+    - "**/.gitignore"
 
 resources:
   apps:
