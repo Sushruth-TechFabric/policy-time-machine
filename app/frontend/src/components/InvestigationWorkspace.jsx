@@ -109,7 +109,12 @@ export default function InvestigationWorkspace({ storageKey, onLabel, onNewInves
               <div ref={conversationEndRef} aria-hidden="true" />
             </div>
           )}
-          <ChipRow chips={chips} onSelect={submitQuestion} disabled={genieLoading} />
+          <ChipRow
+            chips={chips}
+            onSelect={submitQuestion}
+            disabled={genieLoading}
+            label={trail.length === 0 ? 'Start with' : 'Ask next'}
+          />
         </div>
       </div>
     </div>

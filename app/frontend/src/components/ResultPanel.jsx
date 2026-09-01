@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { POLICY_ID_PATTERN } from '../lib/policyId.js';
 import { autoChart } from '../lib/chartRules.js';
 import { formatNumber } from '../lib/format.js';
@@ -24,30 +25,71 @@ function Cell({ value, onPolicyClick }) {
   return <span>{value ?? ''}</span>;
 }
 
+// Live warehouse rows arrive as strings, so numeric detection must accept
+// "24,700" as well as 24700. Policy ids (P-#####) fail the pattern and stay
+// left-aligned.
+function columnLooksNumeric(rows, name) {
+  let seen = false;
+  for (const row of rows) {
+    const v = row[name];
+    if (v == null || v === '') continue;
+    if (typeof v === 'number') { seen = true; continue; }
+    if (typeof v === 'string' && /^-?[\d,]+(\.\d+)?%?$/.test(v.trim())) { seen = true; continue; }
+    return false;
+  }
+  return seen;
+}
+
 function ResultTable({ columns, rows, onPolicyClick }) {
+  const wrapRef = useRef(null);
+  const [clipped, setClipped] = useState(false);
+
+  // A half-cropped row at the scroll boundary reads as a rendering bug; the
+  // fade only appears while rows are actually clipped below the fold.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return undefined;
+    const update = () =>
+      setClipped(el.scrollHeight > el.clientHeight && el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+    update();
+    el.addEventListener('scroll', update);
+    // jsdom has no ResizeObserver; the scroll listener still covers tests.
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', update);
+      observer?.disconnect();
+    };
+  }, [rows]);
+
+  const numericCols = new Set(columns.filter((c) => columnLooksNumeric(rows, c.name)).map((c) => c.name));
+  const colClass = (name) => (numericCols.has(name) ? 'col--num' : undefined);
+
   return (
-    <div className="result-table-wrap">
-      <table className="result-table">
-        <thead>
-          <tr>
-            {columns.map((c) => (
-              <th key={c.name}>{c.name.replaceAll('_', ' ')}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            // eslint-disable-next-line react/no-array-index-key
-            <tr key={i}>
+    <div className="result-table-shell" data-clipped={clipped || undefined}>
+      <div className="result-table-wrap" ref={wrapRef}>
+        <table className="result-table">
+          <thead>
+            <tr>
               {columns.map((c) => (
-                <td key={c.name}>
-                  <Cell value={row[c.name]} onPolicyClick={onPolicyClick} />
-                </td>
+                <th key={c.name} className={colClass(c.name)}>{c.name.replaceAll('_', ' ')}</th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              // eslint-disable-next-line react/no-array-index-key
+              <tr key={i}>
+                {columns.map((c) => (
+                  <td key={c.name} className={colClass(c.name)}>
+                    <Cell value={row[c.name]} onPolicyClick={onPolicyClick} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

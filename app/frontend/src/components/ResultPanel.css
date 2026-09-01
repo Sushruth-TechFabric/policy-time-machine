@@ -111,11 +111,37 @@
   align-items: start;
 }
 
+/* Three narrow columns stretched across the full panel read as dead space;
+   the cap keeps the table scannable while wide many-column results still
+   get the room. */
+.result-table-shell {
+  position: relative;
+  max-width: 860px;
+}
+
 .result-table-wrap {
   overflow: auto;
   max-height: 460px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
+}
+
+/* Fade over the clipped rows — only rendered while rows sit below the fold. */
+.result-table-shell[data-clipped]::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  height: 36px;
+  background: linear-gradient(to bottom, transparent, var(--paper));
+  border-radius: 0 0 var(--radius) var(--radius);
+  pointer-events: none;
+}
+
+.result-table th.col--num,
+.result-table td.col--num {
+  text-align: right;
 }
 
 .result-table {
