@@ -109,15 +109,19 @@ APPROVED_VOCABULARY: tuple[str, ...] = (
     "occurred before",
 )
 
-#: Never use (spec 03 §7 / ADR-0014). Two bans in one list: accusatory language
-#: about people, and causal language about the data.
-BANNED_VOCABULARY: tuple[str, ...] = (
-    "fraud", "fraudulent", "suspicious", "scheme", "deceptive", "guilty",
-    "risk score", "predicts", "causes", "leads to", "increases the risk of",
-    # Not in the spec's own list but named in CONTEXT.md's _Avoid_ lines and in
-    # the task brief as forbidden in user-facing strings.
-    "anomaly", "anomalous", "red flag",
+#: Terms that accuse. Banned on the investigation surface; permitted on the
+#: detector surface, always about a claim and beside a probability (ADR-0020).
+ACCUSATORY_TERMS: tuple[str, ...] = (
+    "fraud", "fraudulent", "suspicious", "scheme", "deceptive",
+    "risk score", "anomaly", "anomalous", "red flag",
 )
+#: Verdict and causal language. Banned on every surface (ADR-0014).
+ALWAYS_BANNED: tuple[str, ...] = (
+    "guilty", "predicts", "causes", "leads to", "increases the risk of",
+)
+BANNED_VOCABULARY: tuple[str, ...] = ACCUSATORY_TERMS + ALWAYS_BANNED
+
+SURFACES: tuple[str, ...] = ("investigation", "detector")
 
 #: The app detects policy references with this pattern (spec 01 §2, ADR-0007).
 #: No identifier of any other type may match it (E19).
@@ -453,14 +457,33 @@ def frame(rows: Sequence[Mapping[str, Any]], schema: Sequence[tuple[str, str]]) 
 # Vocabulary and identifier guards (E18, E19)
 # ---------------------------------------------------------------------------
 
-_BANNED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
-    (term, re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE))
-    for term in BANNED_VOCABULARY
+def _term_pattern(term: str) -> re.Pattern[str]:
+    return re.compile(r"\b" + re.escape(term).replace(r"\ ", r"\s+") + r"\b", re.IGNORECASE)
+
+
+_BANNED_PATTERNS = tuple((term, _term_pattern(term)) for term in BANNED_VOCABULARY)
+_ALWAYS_PATTERNS = tuple((term, _term_pattern(term)) for term in ALWAYS_BANNED)
+
+_PERSON = r"(?:policyholder|customer|insured|claimant|driver)"
+#: Fixed forms, not language understanding: they catch the obvious sentences and
+#: the convention carries the rest (ADR-0020).
+_PERSON_AS_SUBJECT: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"\b{_PERSON}\b\s+(?:is|was|has|had)\b[^.]*?"
+               r"\b(?:fraud\w*|suspicious|deceptive|dishonest|lying)\b", re.IGNORECASE),
+    re.compile(rf"\b{_PERSON}\b\s+(?:committed|staged|lied|faked|invented)\b", re.IGNORECASE),
+    re.compile(rf"\b(?:fraudulent|suspicious|deceptive|dishonest)\s+{_PERSON}\b", re.IGNORECASE),
 )
 
 
-def vocabulary_violations(text: Any) -> list[str]:
-    """Banned terms found in a user-facing string (E18).
+def vocabulary_violations(
+    text: Any, surface: str = "investigation", person_names: Sequence[str] = ()
+) -> list[str]:
+    """Violations of the vocabulary rule on one surface (E18, ADR-0020).
+
+    ``investigation`` (the default, and the only surface the pipeline writes to)
+    bans the whole list. ``detector`` permits the accusatory terms but never a
+    person as their subject, never a customer's name, and never the verdict and
+    causal terms.
 
     AMBIGUITY: E18 reads "contains a term outside the approved vocabulary", which
     taken literally would allow only the nine approved phrases and forbid every
@@ -468,10 +491,19 @@ def vocabulary_violations(text: Any) -> list[str]:
     suspicious, or any assertion about a person" — so E18 is implemented as the
     absence of any banned term, which is the enforceable reading.
     """
+    if surface not in SURFACES:
+        raise ValueError(f"unknown surface {surface!r}; expected one of {SURFACES}")
     value = to_str(text)
     if value is None:
         return []
-    return [term for term, pattern in _BANNED_PATTERNS if pattern.search(value)]
+    if surface == "investigation":
+        return [term for term, pattern in _BANNED_PATTERNS if pattern.search(value)]
+    found = [term for term, pattern in _ALWAYS_PATTERNS if pattern.search(value)]
+    if any(pattern.search(value) for pattern in _PERSON_AS_SUBJECT):
+        found.append("person as subject")
+    if any(name and name.lower() in value.lower() for name in person_names):
+        found.append("person name")
+    return found
 
 
 def matches_policy_id_pattern(value: Any) -> bool:
