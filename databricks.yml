@@ -117,6 +117,9 @@ resources:
     ptm_primary:
       parent: ${resources.postgres_branches.ptm_production.id}
       endpoint_id: primary
+      # The default branch is born with a read-write endpoint named primary;
+      # take it over instead of failing on ALREADY_EXISTS.
+      replace_existing: true
       endpoint_type: ENDPOINT_TYPE_READ_WRITE
       autoscaling_limit_min_cu: 0.5
       autoscaling_limit_max_cu: 1
@@ -136,6 +139,7 @@ resources:
     ptm_review_db:
       parent: ${resources.postgres_branches.ptm_production.id}
       database_id: review
+      postgres_database: review
       role: ${resources.postgres_roles.ptm_app_role.name}
 
   experiments:
