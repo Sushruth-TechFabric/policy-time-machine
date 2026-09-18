@@ -124,7 +124,7 @@ Behaviour flags and their declared odds ratios, applied to the background popula
 | Recent reinstatement | the policy entered `reinstated` status within 30 days before the Loss Date, inclusive | ~16 | 2.5 |
 | New vehicle | a vehicle added after inception and within 30 days before the Loss Date, inclusive | ~43 | 1.5 |
 
-"Two or more prior claims" was considered and dropped: it is true of four claims in the whole book.
+Only early tenure is a signal large enough to measure at this book size; the other two shape the allocation by a claim or two and are kept because they are declared, cheap and grow with the book. "Two or more prior claims" was considered and dropped: it is true of four claims in the whole book.
 
 **Allocation is exact, not sampled.** Within a population the fraud count is `round(rate × claims)`. For the background, claims are grouped into strata by flag pattern; a logistic intercept is solved so the expected total equals the fraud count; each stratum's share is fixed by largest-remainder rounding; the RNG stream only chooses *which* claims inside a stratum. Realised rates are therefore exact on every seed, and realised odds ratios sit within integer rounding of the declared values — the same calibrated-not-sampled approach the generator uses for severity bands.
 
@@ -158,7 +158,8 @@ Rules for the pools:
 
 | Column | Type | Meaning |
 |---|---|---|
-| `claim_id` | string PK | |
+| `claim_id` | string PK | FK to `claim_event` |
+| `policy_id` | string | FK to `policy_profile`, as on every gold table |
 | `policy_age_at_loss_days` | int | Loss Date minus policy inception |
 | `prior_claims_count` | int | claims on the policy with an earlier Report Date (context for the investigator; not a planted signal) |
 | `days_since_prior_claim` | int, nullable | Report Date minus the latest earlier Report Date on the policy; null for a policy's first claim |
@@ -186,7 +187,7 @@ New checks in `generator/validate.py`, run by the existing `validate_task`, so a
 |---|---|
 | Byte identity | For the test seed and anchor, the hash of every pre-existing source table equals the hash recorded before this change. |
 | Declared rates | Realised fraud count in S and in background equals `round(rate × claims)` exactly; zero in C. |
-| Tilts | The validator recomputes the background allocation from the declared parameters and the emitted tables, independently of the generator, and the realised fraud count in every stratum is within one claim of the declared logistic expectation (largest-remainder rounding guarantees this); for each flag the fraud rate among flagged claims exceeds the rate among unflagged. |
+| Tilts | The validator recomputes the background allocation from the declared parameters and the emitted tables, independently of the generator, and the realised fraud count in every stratum is within one claim of the declared logistic expectation (largest-remainder rounding guarantees this); the fraud rate among flagged claims exceeds the rate among unflagged for every flag that expects at least three fraud claims. On the measured book that is early tenure alone: recent reinstatement and new vehicle expect one or two each, so their marginal rate is rounding noise and the stratum check is their guarantee. |
 | Tells | Realised count of each tell, per class, equals `round(rate × applicable claims)`, measured from the note text by `tells_in`. |
 | Separability band | A fixed reference scorer — the sum of the declared log-odds of the tells present and the flags set — reaches an AUC inside a declared band, 0.78–0.92 over the whole book (simulated mean 0.85). Separable, not trivial. |
 | Rules-only proxy | The validator cannot run the pipeline's pattern rules, so it uses scenario membership as their proxy: a claim is "referred" if it is an S planted claim or sits on a C5 policy. Recall must be at most 0.70 (off-pattern fraud guarantees misses) and precision at most 0.45 (benign S and C5 guarantee over-referral). The true rules-only figure, from `policy_pattern_match`, is computed by sub-project B's bench. |
