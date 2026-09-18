@@ -57,6 +57,7 @@ from generator.__main__ import main as generator_main  # noqa: E402
 SEED = 42
 CATALOG = "workspace"
 OUT_DIR = f"/Volumes/{CATALOG}/ptm_bronze/raw"
+TRUTH_DIR = f"/Volumes/{CATALOG}/ptm_eval/raw"
 
 # The medallion schemas and the bronze landing volume (ADR-0016). Ensured
 # here with IF NOT EXISTS rather than declared as bundle `schemas` resources:
@@ -69,6 +70,10 @@ MEDALLION_DDL = (
     f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.ptm_silver",
     f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.ptm_gold",
     f"CREATE VOLUME IF NOT EXISTS {CATALOG}.ptm_bronze.raw",
+    # ADR-0021: the evaluation-only truth lives outside the medallion schemas,
+    # in a schema the application and the Genie space are never granted.
+    f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.ptm_eval",
+    f"CREATE VOLUME IF NOT EXISTS {CATALOG}.ptm_eval.raw",
 )
 
 
@@ -85,7 +90,9 @@ def main() -> int:
     _ensure_medallion_layout()
     anchor = dt.datetime.now(dt.timezone.utc).date().isoformat()
     print(f"[generate] seed={SEED} anchor-date={anchor} out={OUT_DIR} bundle-root={_BUNDLE_ROOT}")
-    return generator_main(["--seed", str(SEED), "--anchor-date", anchor, "--out", OUT_DIR])
+    return generator_main([
+        "--seed", str(SEED), "--anchor-date", anchor, "--out", OUT_DIR, "--truth-out", TRUTH_DIR,
+    ])
 
 
 if __name__ == "__main__":
