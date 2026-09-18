@@ -38,7 +38,15 @@ class FoundationModelClient:
             max_tokens=max_tokens,
             temperature=0.0,
         )
-        return response.choices[0].message.content or ""
+        return _text_of(response.choices[0].message.content)
+
+
+def _text_of(content: str | list | None) -> str:
+    # Reasoning models return a list of blocks; the reply is the text blocks,
+    # and the reasoning block is never parsed for the JSON object.
+    if isinstance(content, list):
+        return "".join(block.get("text") or "" for block in content if block.get("type") == "text")
+    return content or ""
 
 
 _FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)

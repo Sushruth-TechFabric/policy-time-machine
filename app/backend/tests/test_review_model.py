@@ -32,3 +32,18 @@ def test_foundation_model_client_queries_endpoint_with_system_and_user():
     assert kwargs["temperature"] == 0.0
     roles = [m.role.value if hasattr(m.role, "value") else m.role for m in kwargs["messages"]]
     assert [r.lower() for r in roles] == ["system", "user"]
+
+
+def test_foundation_model_client_joins_text_blocks_and_drops_reasoning():
+    # Reasoning models (databricks-gpt-oss-120b) return content as a list of
+    # blocks rather than a string; only the text blocks are the reply.
+    client = MagicMock()
+    client.serving_endpoints.query.return_value = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=[
+            {"type": "reasoning", "summary": [{"type": "summary_text", "text": 'think {"not": "this"}'}]},
+            {"type": "text", "text": '{"ok": true}'},
+        ]))]
+    )
+    text = FoundationModelClient(client, "databricks-gpt-oss-120b").complete("SYS", "USER")
+    assert text == '{"ok": true}'
+    assert parse_json_object(text) == {"ok": True}
