@@ -109,15 +109,19 @@ APPROVED_VOCABULARY: tuple[str, ...] = (
     "occurred before",
 )
 
-#: Never use (spec 03 §7 / ADR-0014). Two bans in one list: accusatory language
-#: about people, and causal language about the data.
-BANNED_VOCABULARY: tuple[str, ...] = (
-    "fraud", "fraudulent", "suspicious", "scheme", "deceptive", "guilty",
-    "risk score", "predicts", "causes", "leads to", "increases the risk of",
-    # Not in the spec's own list but named in CONTEXT.md's _Avoid_ lines and in
-    # the task brief as forbidden in user-facing strings.
-    "anomaly", "anomalous", "red flag",
+#: Terms that accuse. Banned on the investigation surface; permitted on the
+#: detector surface, always about a claim and beside a probability (ADR-0020).
+ACCUSATORY_TERMS: tuple[str, ...] = (
+    "fraud", "fraudulent", "suspicious", "scheme", "deceptive",
+    "risk score", "anomaly", "anomalous", "red flag",
 )
+#: Verdict and causal language. Banned on every surface (ADR-0014).
+ALWAYS_BANNED: tuple[str, ...] = (
+    "guilty", "predicts", "causes", "leads to", "increases the risk of",
+)
+BANNED_VOCABULARY: tuple[str, ...] = ACCUSATORY_TERMS + ALWAYS_BANNED
+
+SURFACES: tuple[str, ...] = ("investigation", "detector")
 
 #: The app detects policy references with this pattern (spec 01 §2, ADR-0007).
 #: No identifier of any other type may match it (E19).
@@ -168,6 +172,17 @@ CLAIM_EVENT_SCHEMA: tuple[tuple[str, str], ...] = (
     ("last_material_change_category", "string"), ("last_material_change_date", "date"),
     ("relevant_coverage_change_prior_60d", "boolean"),
 )
+
+#: Behaviour facts and the first-notice note for one claim. Read by the detector
+#: (sub-projects B-D); deliberately NOT part of the Genie space (ADR-0020).
+CLAIM_CONTEXT_SCHEMA: tuple[tuple[str, str], ...] = (
+    ("claim_id", "string"), ("policy_id", "string"), ("policy_age_at_loss_days", "int"),
+    ("prior_claims_count", "int"), ("days_since_prior_claim", "int"),
+    ("reinstated_within_30d_before_loss", "boolean"),
+    ("vehicle_added_within_30d_before_loss", "boolean"),
+    ("note_text", "string"),
+)
+RECENT_BEFORE_LOSS_DAYS = 30
 
 PATTERN_CODES: tuple[str, ...] = (
     "coverage_raised_then_claimed_same_line",
@@ -237,9 +252,17 @@ POLICY_SIMILARITY_SCHEMA: tuple[tuple[str, str], ...] = (
     ("similarity_score", "decimal"), ("top_reasons", "string"),
 )
 
+#: The tables attached to the Genie space (ADR-0002). claim_context is published
+#: to the same schema but deliberately left out (ADR-0020).
+GENIE_SPACE_TABLES: tuple[str, ...] = (
+    "policy_change_event", "claim_event", "policy_profile",
+    "policy_timeline_event", "policy_pattern_match", "policy_similarity",
+)
+
 SCHEMAS: dict[str, tuple[tuple[str, str], ...]] = {
     "policy_change_event": POLICY_CHANGE_EVENT_SCHEMA,
     "claim_event": CLAIM_EVENT_SCHEMA,
+    "claim_context": CLAIM_CONTEXT_SCHEMA,
     "policy_profile": POLICY_PROFILE_SCHEMA,
     "policy_timeline_event": POLICY_TIMELINE_EVENT_SCHEMA,
     "policy_pattern_match": POLICY_PATTERN_MATCH_SCHEMA,
@@ -280,6 +303,13 @@ GOLD_KEYS: dict[str, TableKeys] = {
         primary_key=("claim_id",),
         foreign_keys=(
             _fk("claim_event", ("policy_id",), "policy_profile", ("policy_id",)),
+        ),
+    ),
+    "claim_context": TableKeys(
+        primary_key=("claim_id",),
+        foreign_keys=(
+            _fk("claim_context", ("claim_id",), "claim_event", ("claim_id",)),
+            _fk("claim_context", ("policy_id",), "policy_profile", ("policy_id",)),
         ),
     ),
     "policy_change_event": TableKeys(
@@ -453,14 +483,33 @@ def frame(rows: Sequence[Mapping[str, Any]], schema: Sequence[tuple[str, str]]) 
 # Vocabulary and identifier guards (E18, E19)
 # ---------------------------------------------------------------------------
 
-_BANNED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
-    (term, re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE))
-    for term in BANNED_VOCABULARY
+def _term_pattern(term: str) -> re.Pattern[str]:
+    return re.compile(r"\b" + re.escape(term).replace(r"\ ", r"\s+") + r"\b", re.IGNORECASE)
+
+
+_BANNED_PATTERNS = tuple((term, _term_pattern(term)) for term in BANNED_VOCABULARY)
+_ALWAYS_PATTERNS = tuple((term, _term_pattern(term)) for term in ALWAYS_BANNED)
+
+_PERSON = r"(?:policyholder|customer|insured|claimant|driver)"
+#: Fixed forms, not language understanding: they catch the obvious sentences and
+#: the convention carries the rest (ADR-0020).
+_PERSON_AS_SUBJECT: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"\b{_PERSON}\b\s+(?:is|was|has|had)\b[^.]*?"
+               r"\b(?:fraud\w*|suspicious|deceptive|dishonest|lying)\b", re.IGNORECASE),
+    re.compile(rf"\b{_PERSON}\b\s+(?:committed|staged|lied|faked|invented)\b", re.IGNORECASE),
+    re.compile(rf"\b(?:fraudulent|suspicious|deceptive|dishonest)\s+{_PERSON}\b", re.IGNORECASE),
 )
 
 
-def vocabulary_violations(text: Any) -> list[str]:
-    """Banned terms found in a user-facing string (E18).
+def vocabulary_violations(
+    text: Any, surface: str = "investigation", person_names: Sequence[str] = ()
+) -> list[str]:
+    """Violations of the vocabulary rule on one surface (E18, ADR-0020).
+
+    ``investigation`` (the default, and the only surface the pipeline writes to)
+    bans the whole list. ``detector`` permits the accusatory terms but never a
+    person as their subject, never a customer's name, and never the verdict and
+    causal terms.
 
     AMBIGUITY: E18 reads "contains a term outside the approved vocabulary", which
     taken literally would allow only the nine approved phrases and forbid every
@@ -468,10 +517,19 @@ def vocabulary_violations(text: Any) -> list[str]:
     suspicious, or any assertion about a person" — so E18 is implemented as the
     absence of any banned term, which is the enforceable reading.
     """
+    if surface not in SURFACES:
+        raise ValueError(f"unknown surface {surface!r}; expected one of {SURFACES}")
     value = to_str(text)
     if value is None:
         return []
-    return [term for term, pattern in _BANNED_PATTERNS if pattern.search(value)]
+    if surface == "investigation":
+        return [term for term, pattern in _BANNED_PATTERNS if pattern.search(value)]
+    found = [term for term, pattern in _ALWAYS_PATTERNS if pattern.search(value)]
+    if any(pattern.search(value) for pattern in _PERSON_AS_SUBJECT):
+        found.append("person as subject")
+    if any(name and name.lower() in value.lower() for name in person_names):
+        found.append("person name")
+    return found
 
 
 def matches_policy_id_pattern(value: Any) -> bool:
@@ -1093,6 +1151,80 @@ def build_claim_event(
 
     out.sort(key=lambda r: (r["policy_id"] or "", r["claim_id"] or ""))
     return frame(out, CLAIM_EVENT_SCHEMA)
+
+
+def _on_or_within_before(loss_date: _dt.date, dates: Sequence[_dt.date]) -> bool:
+    return any(0 <= days_between(loss_date, d) <= RECENT_BEFORE_LOSS_DAYS for d in dates)
+
+
+def build_claim_context(
+    claims: Any, policy_history: Any, vehicle: Any = None, claim_note: Any = None
+) -> pd.DataFrame:
+    """One row per claim: tenure, claim history, recent policy events, the note.
+
+    "Inception" is the first ``effective_from`` of the policy. A reinstatement is
+    the version that *enters* the ``reinstated`` status, not every version that
+    still carries it. A new vehicle is one added after inception, so the vehicle
+    a policy started with never counts. Windows are 0..30 days before the Loss
+    Date, inclusive at both ends.
+    """
+    starts = _policy_start_dates(policy_history)
+
+    reinstated_on: dict[str, list[_dt.date]] = {}
+    for policy_id, versions in _group_by(records(policy_history), "policy_id").items():
+        previous = None
+        for row in sorted(versions, key=lambda r: int(r.get("version_no") or 0)):
+            status = to_str(row.get("policy_status"))
+            entered = to_date(row.get("effective_from"))
+            if status == "reinstated" and previous != "reinstated" and entered is not None:
+                reinstated_on.setdefault(to_str(policy_id), []).append(entered)
+            previous = status
+
+    added_on: dict[str, list[_dt.date]] = {}
+    for row in records(vehicle):
+        policy_id = to_str(row.get("policy_id"))
+        added, start = to_date(row.get("added_date")), starts.get(policy_id)
+        if added is not None and start is not None and added > start:
+            added_on.setdefault(policy_id, []).append(added)
+
+    note_of = {to_str(r.get("claim_id")): to_str(r.get("note_text")) for r in records(claim_note)}
+
+    out: list[dict[str, Any]] = []
+    for policy_key, policy_claims in _group_by(records(claims), "policy_id").items():
+        policy_id = to_str(policy_key)
+        start = starts.get(policy_id)
+        for source in policy_claims:
+            claim_id = to_str(source.get("claim_id"))
+            loss_date = to_date(source.get("loss_date"))
+            report_date = to_date(source.get("report_date"))
+            earlier_reports = sorted(
+                to_date(c.get("report_date")) for c in policy_claims
+                if report_date is not None and to_date(c.get("report_date")) is not None
+                and to_date(c.get("report_date")) < report_date
+            )
+            out.append({
+                "claim_id": claim_id,
+                "policy_id": policy_id,
+                "policy_age_at_loss_days": (
+                    days_between(loss_date, start)
+                    if loss_date is not None and start is not None else None
+                ),
+                "prior_claims_count": len(earlier_reports),
+                "days_since_prior_claim": (
+                    days_between(report_date, earlier_reports[-1]) if earlier_reports else None
+                ),
+                "reinstated_within_30d_before_loss": (
+                    loss_date is not None
+                    and _on_or_within_before(loss_date, reinstated_on.get(policy_id, []))
+                ),
+                "vehicle_added_within_30d_before_loss": (
+                    loss_date is not None
+                    and _on_or_within_before(loss_date, added_on.get(policy_id, []))
+                ),
+                "note_text": note_of.get(claim_id),
+            })
+    out.sort(key=lambda r: r["claim_id"] or "")
+    return frame(out, CLAIM_CONTEXT_SCHEMA)
 
 
 # ---------------------------------------------------------------------------
@@ -1869,10 +2001,12 @@ def build_all(
     policy_history: Any,
     policy_coverage_history: Any,
     claim_payment: Any = None,
+    vehicle: Any = None,
+    claim_note: Any = None,
     anchor_date: Any,
     k: int = K_NEIGHBOURS,
 ) -> dict[str, pd.DataFrame]:
-    """All six curated tables, in dependency order.
+    """All seven curated tables, in dependency order.
 
     Used by the tests and by ``dlt_pipeline.py``'s driver-side build so that the
     ordering constraint — patterns before profile, profile before similarity —
@@ -1882,6 +2016,7 @@ def build_all(
     claim_event = build_claim_event(
         claims, changes, policy_coverage_history, policy_history, anchor_date
     )
+    claim_context = build_claim_context(claims, policy_history, vehicle, claim_note)
     pattern_match = build_policy_pattern_match(change_event, claim_event)
     profile = build_policy_profile(
         policy_history, policy_coverage_history, change_event, claim_event,
@@ -1894,6 +2029,7 @@ def build_all(
     return {
         "policy_change_event": change_event,
         "claim_event": claim_event,
+        "claim_context": claim_context,
         "policy_profile": profile,
         "policy_timeline_event": timeline,
         "policy_pattern_match": pattern_match,

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from . import calibration, constants as K, pools
+from . import calibration, constants as K, pools, truth
 from .ids import mint
 
 DAY_ANCHOR = K.HISTORY_DAYS
@@ -136,7 +136,12 @@ class Builder:
         self._evolve_policies()
         self._allocate_background_claims()
         self._build_claims()
-        return self._frames()
+        frames = self._frames()
+        # Detection tables come last and from their own streams, so every table
+        # above is final and unchanged by them (ADR-0021).
+        planted = {record["claim_id"]: record["scenario"] for record in self._claim_records}
+        frames.update(truth.extend(frames, planted, self.rng("truth"), self.rng("claim-notes")))
+        return frames
 
     # -------------------------------------------------------------- entities
     def _build_entities(self) -> None:

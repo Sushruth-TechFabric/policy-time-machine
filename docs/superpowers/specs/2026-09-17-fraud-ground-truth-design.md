@@ -33,6 +33,10 @@ Decisions already taken for the programme, recorded here so later specs inherit 
 - **Jev** (TypeSafe's System One model: unstructured state in, typed value with a calibrated probability out) plays two roles: the whole-book sweep and the final Verdict. It does not investigate; the harness agent on Databricks Model Serving does.
 - Jev sits behind a `Decider` interface with a Databricks-endpoint implementation beside it. Jev is used in the dev workspace on synthetic data only. Whether policyholder data may leave the Unity Catalog boundary is a separate production decision; until it is made, the Databricks-endpoint Decider is the production default.
 - Vendor claims about calibration are verified on the planted truth, not assumed.
+- For B: "beats the reference scorer" is the bar, not "lands in the AUC band" — S membership alone reaches an AUC of about 0.80 on the measured book; the bench reports AUC within S and within background separately, as well as overall.
+- For B: the emitted parquet row order of `claim`, `claim_note` and the truth table correlates with the label through S membership; the bench never feeds row position to a Decider. `claim_context` in gold is sorted by `claim_id` and carries no such signal.
+- For B: the local default truth directory is `<out>/eval`, inside the source directory; B, the first consumer of the local file, moves the default to a sibling directory.
+- For D: no agent that runs under the job's run-as identity may be given free-form Unity Catalog SQL; if the investigator agent needs it, its tasks run as a principal with no access to `ptm_eval`.
 
 ## 3. What gets built
 
@@ -152,7 +156,7 @@ Rules for the pools:
 - Pools are static constants in `generator/`, reviewed and committed. Generation makes no model call and is byte-stable for a seed.
 - No phrase is exclusive to fraud notes: every phrase that occurs in a fraud note also occurs in a benign one, so a phrase lookup cannot identify fraud; only tell *rates* differ.
 - No phrase contains a banned term, a policy-id lookalike (`P-\d{5}`), or a customer name.
-- Notes use relative wording for time ("two days ago", "last night"), never absolute dates, so a changed anchor does not change a note (determinism obligation 3).
+- No phrase contains a digit or a date; the only time wording is qualitative ("late at night", "after midnight", "the early hours"), so a note never moves with the anchor (determinism obligation 3).
 
 ### 5.4 Gold table `ptm_gold.claim_context`
 
@@ -175,17 +179,17 @@ Expectations (added to `expectations.py` and spec 02). Existing rules extended t
 
 ### 5.5 Truth isolation
 
-`ptm_eval` is a new schema outside the medallion schemas (recorded in ADR-0021, which amends ADR-0016's list). The app service principal is granted gold only, but the agent does not always run as it: the nightly `build_briefs` task runs the same harness as the Workflow's run-as identity, which reads bronze (`route_claims` takes the anchor from `ptm_bronze.generation_manifest`). Bronze is therefore reachable by an agent run and cannot hold the truth; a schema of its own also means no later bronze grant can expose it by accident. The app service principal and the Genie space receive no grant on `ptm_eval`. Only the identity that runs the evaluation bench (sub-project B) reads it.
+`ptm_eval` is a new schema outside the medallion schemas (recorded in ADR-0021, which amends ADR-0016's list). Isolation here is not a grant: the regeneration job's run-as identity is the one that creates and owns `ptm_eval` — its schema, volume and `claim_fraud_truth` table (`generate_task.py`'s DDL, `load_source_tables.py`'s CTAS) — and that same identity later runs `route_claims`, `build_briefs` and the agent harness in the same job run, so a grant cannot keep it from a schema it owns. What keeps the agent off the truth is construction, not permission: the harness's Unity Catalog tools are fixed, parameterised SQL over named gold tables (`app/backend/review/tools.py`); the one tool the model drives, `ScratchSql`, runs only against the Lakebase Working Branch, never against Unity Catalog; Genie is limited to its six attached gold tables; and the application service principal and the Genie space are granted nothing on `ptm_eval`. A schema of its own still earns its place: a later bronze or gold grant can never expose the truth by accident, since there is no such grant to widen, and the repo test can forbid the name outright. No agent that runs under the job's run-as identity may be given free-form Unity Catalog SQL; if the investigator agent (sub-project D) needs it, its tasks run as a principal with no access to `ptm_eval`.
 
 The Workflow's load step writes `claim_fraud_truth` to `ptm_eval`; the declarative pipeline never reads it.
 
 ## 6. Validation
 
-New checks in `generator/validate.py`, run by the existing `validate_task`, so a bad regeneration fails the Workflow.
+Byte identity is asserted by the generator test suite (`generator/tests/test_byte_identity.py`) against golden hashes recorded before the change. New checks in `generator/validate.py`, run by the existing `validate_task`, cover everything else below, so a bad regeneration fails the Workflow.
 
 | Check | Asserts |
 |---|---|
-| Byte identity | For the test seed and anchor, the hash of every pre-existing source table equals the hash recorded before this change. |
+| Byte identity | Asserted by `generator/tests/test_byte_identity.py`, not `validate_task`: for the test seed and anchor, the hash of every pre-existing source table equals the golden hash recorded before this change. |
 | Declared rates | Realised fraud count in S and in background equals `round(rate × claims)` exactly; zero in C. |
 | Tilts | The validator recomputes the background allocation from the declared parameters and the emitted tables, independently of the generator, and the realised fraud count in every stratum is within one claim of the declared logistic expectation (largest-remainder rounding guarantees this); the fraud rate among flagged claims exceeds the rate among unflagged for every flag that expects at least three fraud claims. On the measured book that is early tenure alone: recent reinstatement and new vehicle expect one or two each, so their marginal rate is rounding noise and the stratum check is their guarantee. |
 | Tells | Realised count of each tell, per class, equals `round(rate × applicable claims)`, measured from the note text by `tells_in`. |

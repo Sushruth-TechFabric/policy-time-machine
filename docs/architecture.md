@@ -12,21 +12,22 @@ Other views: [Genie space entity model](./diagrams/rendered/02-er-genie-space.sv
 
 1. **Relationships are data; thresholds are questions.** The pipeline computes every temporal relationship once, as a verified column. Genie only filters and groups. A new question *shape* is a pipeline change, which is a deliberate trade: an opinionated semantic layer that can be tested beats a flexible one that cannot ([ADR-0002](./adr/0002-genie-sees-four-flat-tables-with-precomputed-relationships.md)).
 2. **Definitions, not judgement.** Material change, high-severity, recent, similar and noteworthy each have one deterministic definition, enforced in the pipeline and stated to Genie verbatim ([ADR-0003](./adr/0003-materiality-is-a-fixed-category-set.md), [ADR-0008](./adr/0008-severity-bands-are-fixed-with-limit-utilisation-as-a-second-axis.md), [ADR-0009](./adr/0009-noteworthy-patterns-are-named-rules-stored-twice.md)).
-3. **Invariants are enforced at write time.** Twenty pipeline expectations fail the run rather than let a plausible-but-wrong row through ([ADR-0013](./adr/0013-invariants-are-enforced-as-pipeline-expectations.md)).
+3. **Invariants are enforced at write time.** Twenty-three pipeline expectations fail the run rather than let a plausible-but-wrong row through ([ADR-0013](./adr/0013-invariants-are-enforced-as-pipeline-expectations.md)).
 4. **Unity Catalog is the access-control point for policy data.** The app holds no authorization logic of its own for the gold tables.
 5. **The nondeterministic layers are tested against ground truth.** Genie and the review agent are asserted on their results, never on their SQL or prose ([ADR-0015](./adr/0015-genie-is-tested-against-planted-ground-truth.md)).
 
 ## Data layer
 
-Three Unity Catalog schemas follow the medallion convention ([ADR-0016](./adr/0016-the-catalog-follows-medallion-schemas.md)).
+Three Unity Catalog schemas follow the medallion convention ([ADR-0016](./adr/0016-the-catalog-follows-medallion-schemas.md)). A fourth, `ptm_eval`, sits outside it and holds evaluation-only data ([ADR-0021](./adr/0021-fraud-truth-is-conditional-on-existing-behaviour-and-held-outside-the-medallion-schemas.md)).
 
 | Schema | Contents | Who reads it |
 |---|---|---|
-| `ptm_bronze` | Nine source tables: SCD Type 2 policy and coverage history, claims and claim payments, vehicles, customers, agents, and the generator's manifest and scenario assignments | The pipeline, the `route_claims` task (the manifest's anchor date) and the verification suites |
+| `ptm_bronze` | Ten source tables: SCD Type 2 policy and coverage history, claims, claim payments and claim notes, vehicles, customers, agents, and the generator's manifest and scenario assignments | The pipeline, the `route_claims` task (the manifest's anchor date) and the verification suites |
 | `ptm_silver` | `change_event`, the conformed change stream diffed from policy versions | The pipeline only |
-| `ptm_gold` | Six curated tables. This schema *is* the Genie space | Genie, the app, the review agent |
+| `ptm_gold` | Seven curated tables. Six of them are the Genie space. The seventh, `claim_context`, is published here but not attached to the space | Genie, the app, the review agent |
+| `ptm_eval` | `claim_fraud_truth`, the planted label the reference dataset is evaluated against. Never in bronze, never named under `app/` or `pipeline/`, never in the Genie space | The regeneration job and the generator's validation only |
 
-The six gold tables ([spec 02](./specs/02-semantic-layer.md)):
+The gold tables ([spec 02](./specs/02-semantic-layer.md)):
 
 | Table | Grain | Role |
 |---|---|---|
@@ -35,6 +36,7 @@ The six gold tables ([spec 02](./specs/02-semantic-layer.md)):
 | `policy_profile` | One policy | Current state, behavioural summary, pattern flags |
 | `policy_timeline_event` | One dated event | The deterministic source for the timeline view |
 | `policy_pattern_match` | One policy-and-pattern match | Named rules that fired, with the evidence for each |
+| `claim_context` | One claim | The claim note and behaviour facts around the claim. Outside the Genie space ([ADR-0020](./adr/0020-fraud-detection-lives-on-a-fenced-detector-surface.md), [ADR-0021](./adr/0021-fraud-truth-is-conditional-on-existing-behaviour-and-held-outside-the-medallion-schemas.md)) |
 | `policy_similarity` | One policy-and-neighbour pair | Twenty nearest neighbours by behaviour, with reasons ([ADR-0010](./adr/0010-similar-history-is-a-precomputed-neighbour-table.md)) |
 
 The pipeline is a serverless Lakeflow Declarative Pipeline. Transformation logic lives in `pipeline/transformations.py` as plain functions with no Spark dependency, so the whole rule set is unit-tested on a laptop. `pipeline/dlt_pipeline.py` only reads, calls those builders, and attaches the expectations from `pipeline/expectations.py`.
@@ -73,7 +75,7 @@ Three identities do work in the system:
 |---|---|---|
 | The viewer | Investigations, evidence re-runs, timelines, and the access check before a Brief is served | Whatever the person is granted. For analysts, `ptm_gold` only |
 | The app's service principal | Review Runs requested from the app (their Genie and warehouse calls), and every read and write of the Lakebase review record | `ptm_gold` only |
-| The regeneration job's run-as identity | The generator load, the pipeline refresh, `route_claims`, and the nightly Runs in `build_briefs` | Broader: it writes `ptm_bronze` and reads the generation manifest there |
+| The regeneration job's run-as identity | The generator load, the pipeline refresh, `route_claims`, and the nightly Runs in `build_briefs` | Broader: it writes `ptm_bronze`, reads the generation manifest there, and owns `ptm_eval`. What keeps the agent off that schema is construction, not a grant: its Unity Catalog tools are fixed SQL over named gold tables ([ADR-0021](./adr/0021-fraud-truth-is-conditional-on-existing-behaviour-and-held-outside-the-medallion-schemas.md)) |
 
 Consequences:
 

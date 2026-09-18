@@ -8,7 +8,7 @@ Where the project stands, and what the first production release requires. Items 
 |---|---|
 | Product capabilities | All five built: policy history, change-before-claim, portfolio patterns, similar histories, claim review |
 | Data | The seeded reference dataset of 8,000 personal auto policies. No real source is connected |
-| Semantic layer | Six gold tables, twenty enforced expectations, authored Unity Catalog comments |
+| Semantic layer | Seven gold tables, twenty-three enforced expectations, authored Unity Catalog comments |
 | Genie | Space authored as code, fifteen query contracts at three of three |
 | Access control | On-behalf-of-user. Unity Catalog governs all policy data. The review record mirrors it in the app |
 | Environments | One: development, on a Free Edition workspace |

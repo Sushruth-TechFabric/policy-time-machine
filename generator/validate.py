@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import constants as K
+from . import constants as K, truth, validate_truth
 from .ids import assert_lexical_reservation
 from .emit import DATE_COLUMNS, POLICY_COLUMNS, TABLE_ORDER
 
@@ -275,7 +275,7 @@ def rate(claim_flags: np.ndarray, mask: np.ndarray) -> tuple[float, int, float]:
 
 
 # --------------------------------------------------------------------- checks
-def run(out_dir: Path) -> tuple[Report, dict]:
+def run(out_dir: Path, truth_dir: Path | None = None) -> tuple[Report, dict]:
     frames = load(out_dir)
     anchor = anchor_of(frames)
     report = Report()
@@ -518,6 +518,11 @@ def run(out_dir: Path) -> tuple[Report, dict]:
     measurements["row_counts"] = {table: len(frame) for table, frame in frames.items()}
     measurements["material_change_count"] = len(material)
 
+    # --- detection tables (ADR-0021) -----------------------------------------
+    validate_truth.add_checks(
+        report, measurements, frames, Path(truth_dir) if truth_dir else truth.default_dir(out_dir)
+    )
+
     return report, measurements
 
 
@@ -756,9 +761,11 @@ def activity_tail(material: pd.DataFrame, claim: pd.DataFrame, anchor: pd.Timest
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m generator.validate", description=__doc__)
     parser.add_argument("--out", required=True, help="directory holding the generated parquet files")
+    parser.add_argument("--truth-out", default=None,
+                        help="directory holding the evaluation-only table; defaults to <out>/eval")
     args = parser.parse_args(argv)
 
-    report, measurements = run(Path(args.out))
+    report, measurements = run(Path(args.out), Path(args.truth_out) if args.truth_out else None)
     print("Generator validation - measured against declared design parameters")
     print()
     print(report.render())
@@ -791,6 +798,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"    severity bands             {measurements['severity_bands']}")
     print(f"    row counts                 {measurements['row_counts']}")
     print(f"    material changes derived   {measurements['material_change_count']:,}")
+    for line in validate_truth.summary_lines(measurements):
+        print(line)
     print()
     if not report.ok:
         print("VALIDATION FAILED")

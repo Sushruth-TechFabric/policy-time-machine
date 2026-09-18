@@ -1,6 +1,6 @@
 # Semantic Layer Specification
 
-The six curated tables Genie sees, and the expectations that enforce their invariants. They are the gold layer — the `ptm_gold` schema, which is exactly the Genie space (medallion layout, ADR-0016) — built by a Lakeflow Declarative Pipeline from the bronze source tables in `01-data-model-and-synthetic-data.md` via the silver `change_event` stream in `ptm_silver`.
+The six curated tables Genie sees, and the expectations that enforce their invariants. They are six of the seven tables in the gold layer — the `ptm_gold` schema (medallion layout, ADR-0016); the seventh, `claim_context` (§10), is not part of the Genie space — built by a Lakeflow Declarative Pipeline from the bronze source tables in `01-data-model-and-synthetic-data.md` via the silver `change_event` stream in `ptm_silver`.
 
 **The SCD Type 2 tables are never exposed to Genie** (ADR-0002).
 
@@ -303,8 +303,11 @@ Every invariant is enforced at write time as a pipeline expectation (ADR-0013). 
 | E18 | No `pattern_name`, `top_reasons` or `display_label` contains a term outside the approved vocabulary | all | 0009, 0014 |
 | E19 | No identifier other than a policy id matches `\bP-\d{5}\b` | all | 0007 |
 | E20 | No column stores an event-to-now delta | all | 0006 |
+| E21 | One row in `claim_context` per row in `claim_event`, and no others | `claim_context` | 0021 |
+| E22 | `note_text` non-null and non-empty | `claim_context` | 0021 |
+| E23 | `prior_claims_count` and `policy_age_at_loss_days` are both non-null and `>= 0` | `claim_context` | 0021 |
 
-E18 is the product's no-fraud-labelling boundary enforced as a data-quality constraint. E20 is enforced by review against this specification, since it is a property of the schema rather than of a row.
+E18 is the product's no-fraud-labelling boundary enforced as a data-quality constraint. E20 is enforced by review against this specification, since it is a property of the schema rather than of a row. E21 is a QA join between `claim_event` and `claim_context` on `claim_id`; a row missing either side fails it. `claim_context` is described in §10.
 
 ---
 
@@ -319,3 +322,24 @@ The counterintuitive definitions must appear verbatim in the relevant column com
 - `change_timing` — "Deliberately redundant with the sign of `days_to_next_claim_loss`. Use this rather than interpreting the sign."
 - `severity_band` — "High-severity means `severe` or `catastrophic`."
 - `policy_timeline_event` (table) — "For reading one policy's history. Do not aggregate; this table mixes grains."
+
+---
+
+## 10. `claim_context`
+
+**Grain:** one row per claim, same grain as `claim_event`.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `claim_id` | string PK | FK to `claim_event` |
+| `policy_id` | string | FK to `policy_profile`, as on every gold table |
+| `policy_age_at_loss_days` | int | Loss Date minus policy inception |
+| `prior_claims_count` | int | claims on the policy with an earlier Report Date (context for the investigator; not a planted signal) |
+| `days_since_prior_claim` | int, nullable | Report Date minus the latest earlier Report Date on the policy; null for a policy's first claim |
+| `reinstated_within_30d_before_loss` | boolean | the policy entered `reinstated` status within 30 days before the Loss Date, inclusive |
+| `vehicle_added_within_30d_before_loss` | boolean | a vehicle added after inception, 0–30 days before the Loss Date |
+| `note_text` | string | from `claim_note` |
+
+Built by `build_claim_context` in `pipeline/transformations.py`, which reads two bronze sources no other gold table reads (`vehicle`, `claim_note`). Its schema is declared in the shared schema registry so the pandas and Spark sides cannot disagree. Expectations E18 (vocabulary, investigation surface), E19 (no policy-id lookalike), E21, E22 and E23 are listed in §8.
+
+**Not attached to the Genie space.** This table lives in `ptm_gold`, alongside the six tables above, but Genie is not given it: a separate table rather than new columns on `claim_event`, because Genie reads `claim_event` today and new columns there could change the SQL Genie writes and destabilise the fifteen query contracts. `ptm_gold` and "the Genie space" are consequently no longer exact synonyms — ADR-0021 amends the layout ADR-0016 describes. Attaching `claim_context` to the Genie space is a later decision that comes with a full contract re-run, not an incidental grant (ADR-0021).

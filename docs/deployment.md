@@ -36,7 +36,7 @@ Set in the `config.env` block of the app resource in `databricks.yml`. `app/app.
 |---|---|---|
 | `GENIE_SPACE_ID` | The Genie space the app proxies to. Unset, Genie calls return a structured error and the rest of the app works | none |
 | `DATABRICKS_WAREHOUSE_ID` | Warehouse for the app's deterministic queries | development warehouse |
-| `PTM_CATALOG`, `PTM_SCHEMA` | Location of the six gold tables | `workspace`, `ptm_gold` |
+| `PTM_CATALOG`, `PTM_SCHEMA` | Location of the gold tables | `workspace`, `ptm_gold` |
 | `LAKEBASE_PROJECT_ID` | Lakebase project holding the review record. Unset, the review record is in-memory | none |
 | `LAKEBASE_MAIN_BRANCH`, `LAKEBASE_MAIN_ENDPOINT` | Branch and endpoint that Working Branches fork from | `production`, `primary` |
 | `APP_SERVICE_PRINCIPAL_ID` | The app service principal's application id, used for Lakebase grants | bundle variable |

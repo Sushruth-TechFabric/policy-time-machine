@@ -32,7 +32,7 @@ File numbers reflect the order they were written, not the order to read them in.
 
 - [`../README.md`](../README.md) — the documentation map: architecture, development, deployment, operations and the roadmap.
 - [`../../CONTEXT.md`](../../CONTEXT.md) — the glossary. Read it before anything else; these documents use its vocabulary precisely.
-- [`../adr/`](../adr/) — nineteen decisions with their reasoning. The specifications state *what*; the ADRs record *why*, including the alternatives rejected and the two decisions later superseded.
+- [`../adr/`](../adr/) — twenty-one decisions with their reasoning. The specifications state *what*; the ADRs record *why*, including the alternatives rejected and the two decisions later superseded.
 
 ## Open parameters
 

@@ -24,17 +24,9 @@ DECLARED_CATEGORY_ORDER = ["coverage", "deductible", "vehicle", "status", "addre
 # Approved vocabulary boundary, spec 03 §7 / ADR-0014. QC-13's negative
 # assertion checks Genie's prose against this banned list.
 BANNED_VOCABULARY = [
-    "fraud",
-    "fraudulent",
-    "suspicious",
-    "scheme",
-    "deceptive",
-    "guilty",
-    "risk score",
-    "predicts",
-    "causes",
-    "leads to",
-    "increases the risk of",
+    "fraud", "fraudulent", "suspicious", "scheme", "deceptive",
+    "risk score", "anomaly", "anomalous", "red flag",
+    "guilty", "predicts", "causes", "leads to", "increases the risk of",
 ]
 
 VALID_PATTERN_NAMES = {

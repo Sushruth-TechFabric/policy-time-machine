@@ -221,6 +221,33 @@ COMMENTS: dict[str, dict[str | None, str]] = {
         ),
     },
     # -----------------------------------------------------------------------
+    "claim_context": {
+        None: (
+            "One row per claim: how long the policy had run at the loss, the claim "
+            "history before it, recent policy events, and the first-notice note. "
+            "Join to claim_event on claim_id. Never use it for counting."
+        ),
+        "claim_id": "The claim this context belongs to. One row per claim_event row.",
+        "policy_id": "The policy the claim was filed against.",
+        "policy_age_at_loss_days": (
+            "Days from the policy's inception (its first effective date) to loss_date."
+        ),
+        "prior_claims_count": (
+            "Claims on the same policy with an earlier report_date."
+        ),
+        "days_since_prior_claim": (
+            "Days from the latest earlier report_date on the policy to this claim's "
+            "report_date. NULL for a policy's first claim."
+        ),
+        "reinstated_within_30d_before_loss": (
+            "True when the policy entered reinstated status 0 to 30 days before loss_date."
+        ),
+        "vehicle_added_within_30d_before_loss": (
+            "True when a vehicle was added after inception and 0 to 30 days before loss_date."
+        ),
+        "note_text": "The first-notice note taken when the loss was reported. Free text.",
+    },
+    # -----------------------------------------------------------------------
     "policy_profile": {
         None: (
             "One row per policy: current state, a behavioural summary, recency "

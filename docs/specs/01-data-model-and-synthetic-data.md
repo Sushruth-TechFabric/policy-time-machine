@@ -149,6 +149,10 @@ erDiagram
         date payment_date
         decimal amount "payments sum to settled_amount when settled"
     }
+    claim_note {
+        string claim_id PK "FK to claim; one note per claim"
+        string note_text
+    }
     scenario_assignment {
         string policy_id FK "noteworthy, control, similarity-group or DEMO"
         string scenario_id
@@ -169,6 +173,7 @@ erDiagram
     policy_history ||--o{ vehicle : "policy_id"
     policy_history ||--o{ claim : "policy_id"
     claim ||--o{ claim_payment : "claim_id"
+    claim ||--|| claim_note : "claim_id"
     policy_history ||--o| scenario_assignment : "policy_id"
 ```
 
@@ -206,6 +211,13 @@ One settled amount per claim; no incurred-versus-paid development (ADR-0008). `r
 `payment_id`, `claim_id`, `payment_date`, `amount`
 
 Present so payments can appear on the timeline. Payments sum to `settled_amount` for settled claims. Not used in any analytical measure.
+
+### `claim_note`
+`claim_id`, `note_text`
+
+One first-notice note per claim, assembled from seeded phrase pools on a dedicated RNG stream (§9). Bound by the vocabulary constraint (§11) like every other generator-authored string.
+
+**`claim_fraud_truth` is not a source table.** `ptm_eval.claim_fraud_truth` (`claim_id`, `is_fraud`, `population`) is emitted apart from the bronze tables above, from its own RNG stream, after all of them are final, into a schema of its own outside the medallion layout (§9, ADR-0021). It carries no PK/FK relationship into this diagram because nothing in the bronze or gold layers reads it.
 
 ---
 
@@ -328,6 +340,76 @@ Scenario policies must be each other's nearest neighbours at known ranks, so the
 
 One policy — conventionally the S1 exemplar — is the demo's primary subject and must have a rich, legible timeline: an address change, a coverage increase on `COLL`, a vehicle change, and a collision claim, in that order, all within the 60 days before the loss.
 
+### Fraud truth and planted evidence
+
+`ptm_eval.claim_fraud_truth` (`claim_id`, `is_fraud`, `population`) is drawn from a new `truth` RNG stream after every table above is final, conditional on behaviour those tables already contain, so no existing row moves (ADR-0021). `claim_note` (`claim_id`, `note_text`) is an ordinary bronze source table, one first-notice note per claim, assembled from seeded phrase pools on a new `claim-notes` RNG stream, conditional on `is_fraud`.
+
+**Populations.** `population` is `C` for a claim on a control policy, `S` for a claim a noteworthy scenario planted (S5 plants no claim), otherwise `background` — this includes ordinary claims that happen to land on an S policy.
+
+| Population | Claims | Fraud rate | Fraud claims |
+|---|---|---|---|
+| S planted claims | 150 | 40%, flat | 60 |
+| C claims | 135 | 0% | 0 |
+| Background claims | 1,000 | 3%, tilted by behaviour | 30 |
+
+1,285 claims in total, about 7% overall prevalence. Behaviour has no variance inside S — one flagged claim in 150 — so the S rate is flat rather than tilted by any flag, and inside that rule-matched group the claim note is the only evidence that separates the sixty fraud claims from the ninety benign ones. A third of fraud matches no pattern rule, so rules alone miss it; sixty percent of rule-matched S claims are benign, so rules alone over-refer.
+
+**Behaviour flags**, declared odds ratios applied to the background population only:
+
+| Flag | Definition | Background claims flagged | Declared odds ratio |
+|---|---|---|---|
+| Early tenure | Loss Date within 90 days of policy inception (the first `effective_from` of the policy) | ~82 | 3.0 |
+| Recent reinstatement | the policy entered `reinstated` status within 30 days before the Loss Date, inclusive | ~16 | 2.5 |
+| New vehicle | a vehicle added after inception and within 30 days before the Loss Date, inclusive | ~43 | 1.5 |
+
+Only early tenure produces a rate difference large enough to measure at this book size; the other two shape the allocation by a claim or two and are kept because they are declared, cheap, and grow with the book.
+
+**Allocation is exact, not sampled**, the same calibrated-not-sampled approach used for severity bands (§8): within a population the fraud count is `round(rate × claims)`. For the background, claims are grouped into strata by flag pattern; a logistic intercept is solved so the expected total equals the declared fraud count; each stratum's share is fixed by largest-remainder rounding; the RNG stream only chooses which claims inside a stratum carry the label.
+
+**Claim notes.** A note has five slots — what happened (pool chosen by Coverage Line), where, police report, witnesses, damage description — each with an ordinary variant and a tell variant.
+
+| Tell | P(tell given fraud) | P(tell given benign) |
+|---|---|---|
+| Vague location | 55% | 15% |
+| No police report where one is expected (`COLL`, `COMP` only) | 60% | 25% |
+| No witnesses, late night | 45% | 15% |
+| Damage description inconsistent with the claimed Coverage Line | 25% | 2% |
+
+Tells are allocated independently of one another and by exact count. No phrase is exclusive to fraud notes — every phrase in a fraud note also occurs in a benign one, so a phrase lookup cannot identify fraud; only tell rates differ. No phrase contains a banned term, a policy-id lookalike, or a customer name. No phrase contains a digit or a date; the only time wording is qualitative ("late at night", "after midnight", "the early hours"), so a note never moves with the anchor (§10 obligation 3). About one fraud note in eight carries no tell at all.
+
+**Validation.** Byte identity is asserted by the generator test suite (`generator/tests/test_byte_identity.py`) against golden hashes recorded before the change; every other check below runs in the regeneration Workflow's `validate` task on every regeneration:
+
+| Check | Asserts |
+|---|---|
+| Byte identity | Asserted by `generator/tests/test_byte_identity.py`: every pre-existing source table hashes the same, for the test seed and anchor, as the golden hash recorded before this change. |
+| Declared rates | Realised fraud count in S and in background equals `round(rate × claims)` exactly; zero in C. |
+| Tilts | The realised fraud count in every background stratum is within one claim of the declared logistic expectation; the fraud rate among flagged claims exceeds the rate among unflagged claims for every flag expecting at least three fraud claims. |
+| Tells | Realised count of each tell, per class, equals `round(rate × applicable claims)`, measured from the note text. |
+| Separability band | A fixed reference scorer — the sum of the declared log-odds of the tells present and the flags set — reaches an AUC inside a declared band, 0.78–0.92 (simulated mean 0.85). |
+| Rules-only proxy | Scenario membership (an S planted claim or a claim on a C5 policy) stands in for the pattern rules: recall at most 0.70, precision at most 0.45. |
+| Leakage | No phrase exclusive to fraud notes; no note contains a banned term or a policy-id lookalike; `is_fraud` independent of `claim_id` order (absolute rank correlation below 0.10). |
+
+Rates, strata and tell counts are checked as equalities; only the separability band and the leakage rank correlation are ranges.
+
+**Measured on seed 42, anchor 2026-01-01**, from the validation report:
+
+```
+detection: one label and one note per claim                                  1,285 labels, 1,285 notes, 1,285 claims
+detection: declared rates are exact                                          measured {'S': 60, 'background': 30, 'C': 0}, declared {'S': 60, 'background': 30, 'C': 0}
+detection: every background stratum is within one claim of its expectation   largest gap 0.446 across 5 strata
+detection: every measurable behaviour flag raises the background rate        early_tenure 7.3% vs 2.6%, recent_reinstatement 6.2% vs 2.9% (too rare to assert), new_vehicle 2.3% vs 3.0% (too rare to assert)
+detection: tell counts are exact in both classes
+detection: reference scorer AUC inside 0.78-0.92                             AUC 0.859
+detection: scenario-membership proxy for the rules stays below its ceilings  recall 0.667 (<= 0.7), precision 0.387 (<= 0.45)
+detection: no phrase is exclusive to labelled notes
+detection: notes carry no banned term and no policy-id lookalike             0 offending notes
+detection: the label is independent of claim_id order                        rank correlation +0.000
+
+labelled claims            {'S': 60, 'background': 30, 'C': 0} of {'S': 150, 'background': 1000, 'C': 135}
+reference scorer AUC       0.859 (band 0.78-0.92) - baseline for the evaluation bench
+rules proxy                recall 0.667, precision 0.387
+```
+
 ---
 
 ## 10. Determinism obligations
@@ -342,3 +424,5 @@ One policy — conventionally the S1 exemplar — is the demo's primary subject 
 ## 11. Vocabulary constraint
 
 Any generator-authored string that can reach a user — `pattern_name`, `top_reasons`, event display labels — draws only on the approved vocabulary list in `03-genie-knowledge.md`. Noteworthy, unusual, pattern, investigation candidate, requires review. Never fraud, suspicious, or any assertion about a person. This is enforced as a pipeline expectation (ADR-0013), not as a code-review convention.
+
+This constraint governs the investigation surface (ADR-0020). Claim-note phrase pools are bound by it too: notes are investigation-surface text today, and stay under the generator's own source-vocabulary test along with every other generator-authored string.

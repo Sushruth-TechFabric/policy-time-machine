@@ -17,7 +17,7 @@ The job's tasks, in order:
 |---|---|---|
 | `generate` | Regenerates the reference dataset at today's UTC date | Generator error |
 | `validate` | Checks realised effect sizes, category ranking, band population and scenario sizes against their declared values | Any drift beyond ±15% relative, or a changed ranking |
-| `load_source_tables` | Replaces the nine `ptm_bronze` tables | Load error |
+| `load_source_tables` | Replaces the ten `ptm_bronze` tables, and `claim_fraud_truth` in `ptm_eval` | Load error |
 | `refresh_pipeline` | Full refresh into `ptm_silver` and `ptm_gold` | Any expectation violated |
 | `route_claims` | Applies the Routing Rule and records Routed Claims | Warehouse or Lakebase error |
 | `build_briefs` | Runs the agent over undisposed Routed Claims with no Brief, newest first, up to `REVIEW_NIGHTLY_CAP` | **Never.** A failed Run is re-queued and reported in the task log, and the task still exits 0 |
