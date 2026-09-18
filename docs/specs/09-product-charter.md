@@ -88,7 +88,7 @@ Depth over breadth was deliberate (ADR-0005). A scalar policy-level coverage amo
 
 **Definitions instead of judgement.** Material change, high-severity, recent, similar, noteworthy — each has one deterministic definition, written down, enforced, and stated to Genie verbatim. Nothing important is left to improvisation.
 
-**Invariants enforced at write time.** Twenty pipeline expectations encode the subtle rules: signed deltas agreeing with their categorical, linkage columns nulling together, severity bands partitioning cleanly, no sentinel values anywhere. A rule that lives only in a document drifts (ADR-0013).
+**Invariants enforced at write time.** Twenty-three pipeline expectations encode the subtle rules: signed deltas agreeing with their categorical, linkage columns nulling together, severity bands partitioning cleanly, no sentinel values anywhere. A rule that lives only in a document drifts (ADR-0013).
 
 **Ground truth for a nondeterministic layer.** The synthetic scenarios double as a test oracle. We know which forty policies were built to match "coverage increased within 30 days before a claim," so the contract asserts on the result rather than on the SQL — robust to rephrasing, fatal to a wrong cohort (ADR-0015).
 

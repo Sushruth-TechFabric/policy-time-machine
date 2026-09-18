@@ -13,7 +13,7 @@ Four layers, no overlap. Each names a distinct failure mode, and every one of th
 
 ## 1. Pipeline expectations
 
-The twenty expectations in `02-semantic-layer.md` §8, enforced by the declarative pipeline (ADR-0013). They run on every pipeline execution and fail the build.
+The twenty-three expectations in `02-semantic-layer.md` §8, enforced by the declarative pipeline (ADR-0013). They run on every pipeline execution and fail the build.
 
 These are not a supplement to the specification — they *are* the specification, in executable form. A rule that lives only in a document drifts the first time an implementation detail changes.
 
