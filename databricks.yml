@@ -1,6 +1,14 @@
 bundle:
   name: policy_time_machine
 
+variables:
+  app_service_principal_id:
+    description: Application id of the policy-time-machine app's service principal (Apps UI > app > Authorization).
+    default: "5ee081ba-a745-4666-8ad2-41d3cfc674db"
+  review_model_endpoint:
+    description: Pay-per-token Claude endpoint enabled on this workspace's serving page.
+    default: "databricks-claude-sonnet-4-5"
+
 # Task zero: deploy-envelope smoke test only. Keep node_modules and
 # frontend source noise out of the upload — Databricks Apps enforces
 # a 10 MB per-file limit and only the built static bundle is needed
@@ -47,11 +55,53 @@ resources:
   apps:
     policy_time_machine_app:
       name: policy-time-machine
-      description: "Policy Time Machine — deploy-envelope smoke test (task zero)"
+      description: "Policy Time Machine — investigation workbench and claim review"
       source_code_path: ./app
       user_api_scopes:
         - dashboards.genie
         - sql
+      resources:
+        - name: postgres
+          postgres:
+            branch: ${resources.postgres_branches.ptm_production.name}
+            database: ${resources.postgres_databases.ptm_review_db.name}
+            permission: CAN_CONNECT_AND_CREATE
+
+  postgres_projects:
+    ptm_review:
+      project_id: policy-time-machine
+      display_name: Policy Time Machine review record
+      pg_version: 17
+      permissions:
+        - level: CAN_MANAGE
+          service_principal_name: ${var.app_service_principal_id}
+
+  postgres_branches:
+    ptm_production:
+      parent: ${resources.postgres_projects.ptm_review.id}
+      branch_id: production
+      replace_existing: true
+      no_expiry: true
+
+  postgres_endpoints:
+    ptm_primary:
+      parent: ${resources.postgres_branches.ptm_production.id}
+      endpoint_id: primary
+      endpoint_type: ENDPOINT_TYPE_READ_WRITE
+      autoscaling_limit_min_cu: 0.5
+      autoscaling_limit_max_cu: 1
+
+  postgres_databases:
+    ptm_review_db:
+      parent: ${resources.postgres_branches.ptm_production.id}
+      database_id: review
+
+  experiments:
+    ptm_review_traces:
+      name: /Shared/policy-time-machine-review
+      permissions:
+        - level: CAN_EDIT
+          service_principal_name: ${var.app_service_principal_id}
 
   pipelines:
     policy_time_machine_pipeline:
@@ -115,6 +165,9 @@ resources:
             environment_version: "5"
             dependencies:
               - "pandas>=3.0,<4"
+              - "databricks-sdk>=0.89,<1"
+              - "psycopg[binary]>=3.2,<4"
+              - "mlflow>=3.1,<4"
       tasks:
         - task_key: generate
           environment_key: generator_env
@@ -145,6 +198,40 @@ resources:
           pipeline_task:
             pipeline_id: ${resources.pipelines.policy_time_machine_pipeline.id}
             full_refresh: true
+        - task_key: route_claims
+          depends_on:
+            - task_key: refresh_pipeline
+          environment_key: generator_env
+          spark_python_task:
+            python_file: workflow/route_claims_task.py
+            parameters:
+              - "--bundle-root"
+              - "${workspace.file_path}"
+              - "--LAKEBASE_PROJECT_ID"
+              - "policy-time-machine"
+              - "--APP_SERVICE_PRINCIPAL_ID"
+              - "${var.app_service_principal_id}"
+              - "--REVIEW_MODEL_ENDPOINT"
+              - "${var.review_model_endpoint}"
+              - "--REVIEW_MLFLOW_EXPERIMENT"
+              - "/Shared/policy-time-machine-review"
+        - task_key: build_briefs
+          depends_on:
+            - task_key: route_claims
+          environment_key: generator_env
+          spark_python_task:
+            python_file: workflow/build_briefs_task.py
+            parameters:
+              - "--bundle-root"
+              - "${workspace.file_path}"
+              - "--LAKEBASE_PROJECT_ID"
+              - "policy-time-machine"
+              - "--APP_SERVICE_PRINCIPAL_ID"
+              - "${var.app_service_principal_id}"
+              - "--REVIEW_MODEL_ENDPOINT"
+              - "${var.review_model_endpoint}"
+              - "--REVIEW_MLFLOW_EXPERIMENT"
+              - "/Shared/policy-time-machine-review"
       schedule:
         # Daily is far inside the staleness budget: the guaranteed-activity
         # tail covers anchor-120d (spec 01 section 5.4 / spec 08 section 2),

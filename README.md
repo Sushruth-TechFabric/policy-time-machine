@@ -9,6 +9,11 @@ The Claim Review Brief agent (decisions: ADR-0017, ADR-0018, ADR-0019 in [`docs/
 - **Free Edition allows one Lakebase project per account.** If a judge's account already has a project from a previous submission or trial, they must delete it before this bundle can deploy its own — there is no way to point the bundle at an existing project.
 - **`databricks bundle destroy` soft-deletes the Lakebase project for seven days**, and the project id cannot be reused during that window. Never destroy the bundle near a demo — a re-deploy in that window will fail on the id collision, not create a fresh project.
 - **`REVIEW_MODEL_ENDPOINT` must name an enabled, pay-per-token serving endpoint** (a `databricks-claude-*` foundation model endpoint). Check the workspace's serving page before first deploy; not every `databricks-claude-*` endpoint is enabled on every workspace or edition, and a disabled endpoint fails every Run rather than falling back silently.
+- **One-time grants:** the app's service principal needs `CAN_RUN` on the Genie space so the app can call Genie on the user's behalf; the bundle does not grant this (Genie space permissions aren't a bundle resource type), so run it once per workspace after the space exists:
+
+  ```bash
+  databricks api patch /api/2.0/permissions/genie/01f1a5808edd1859b78359723b7c5379 --json '{"access_control_list":[{"service_principal_name":"5ee081ba-a745-4666-8ad2-41d3cfc674db","permission_level":"CAN_RUN"}]}'
+  ```
 
 ### Running the agent's live checks
 
