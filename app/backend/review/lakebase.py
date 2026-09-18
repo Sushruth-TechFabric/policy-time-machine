@@ -1,10 +1,10 @@
 """Lakebase access: connections to main, and the Working Branch lifecycle.
 
 Branches fork and never merge (ADR-0017). The harness forks
-``run-<run_id>`` from the main branch, creates a compute endpoint on it
-(non-default branches have none until asked), connects with a fresh OAuth
-database credential as password, and deletes endpoint then branch when
-the Run ends. A TTL on the branch is the platform backstop for a crashed
+``run-<run_id>`` from the main branch, adopts the read-write endpoint the
+platform provisions with the branch (creating one only where it does not),
+connects with a fresh OAuth database credential as password, and deletes
+endpoint then branch when the Run ends. A TTL on the branch is the platform backstop for a crashed
 process; explicit deletion is the normal path.
 """
 
@@ -88,14 +88,28 @@ class BranchLifecycle:
                                           ttl=Duration(seconds=REVIEW_BRANCH_TTL_SECONDS))),
             branch_id=f"run-{run_id}",
         ).wait()
-        endpoint = self._client.postgres.create_endpoint(
-            parent=branch.name,
+        try:
+            endpoint = self._read_write_endpoint(branch.name)
+        except Exception:
+            # A branch left behind holds compute, and only one Working Branch
+            # may hold compute at a time; do not wait for the TTL to reap it.
+            self._client.postgres.delete_branch(name=branch.name).wait()
+            raise
+        return WorkingBranch(run_id=run_id, branch_name=branch.name, endpoint_name=endpoint.name,
+                             host=endpoint.status.hosts.host)
+
+    def _read_write_endpoint(self, branch_name: str) -> Endpoint:
+        # A branch allows one read-write endpoint, and the platform may create
+        # it together with the branch; a second create is a BadRequest.
+        for endpoint in self._client.postgres.list_endpoints(parent=branch_name):
+            if endpoint.status.endpoint_type == EndpointType.ENDPOINT_TYPE_READ_WRITE:
+                return endpoint
+        return self._client.postgres.create_endpoint(
+            parent=branch_name,
             endpoint=Endpoint(spec=EndpointSpec(endpoint_type=EndpointType.ENDPOINT_TYPE_READ_WRITE,
                                                 autoscaling_limit_min_cu=0.5, autoscaling_limit_max_cu=1.0)),
             endpoint_id="primary",
         ).wait()
-        return WorkingBranch(run_id=run_id, branch_name=branch.name, endpoint_name=endpoint.name,
-                             host=endpoint.status.hosts.host)
 
     def delete(self, branch: WorkingBranch) -> None:
         try:

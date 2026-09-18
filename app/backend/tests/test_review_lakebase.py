@@ -1,8 +1,12 @@
-"""Branch lifecycle against a mocked SDK: create branch -> create endpoint
--> read host; delete endpoint then branch, tolerant of a missing endpoint."""
+"""Branch lifecycle against a mocked SDK: create branch -> adopt or create
+its read-write endpoint -> read host; delete endpoint then branch, tolerant
+of a missing endpoint."""
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock
+
+import pytest
+from databricks.sdk.service.postgres import EndpointType
 
 from backend.review import lakebase
 from backend.review.lakebase import BranchLifecycle, WorkingBranch
@@ -17,6 +21,7 @@ def _client():
         status=SimpleNamespace(hosts=SimpleNamespace(host="ep-run-abc.example.com")),
     )
     client.postgres.create_endpoint.return_value.wait.return_value = endpoint
+    client.postgres.list_endpoints.return_value = []
     client.postgres.generate_database_credential.return_value = SimpleNamespace(token="tok")
     return client
 
@@ -37,6 +42,31 @@ def test_create_forks_main_and_returns_host(monkeypatch):
     assert kwargs["branch_id"] == "run-abc"
     assert kwargs["branch"].spec.source_branch == "projects/ptm/branches/production"
     assert kwargs["branch"].spec.ttl.seconds == lakebase.REVIEW_BRANCH_TTL_SECONDS
+
+
+def test_create_adopts_the_read_write_endpoint_the_platform_provisions(monkeypatch):
+    monkeypatch.setattr(lakebase, "LAKEBASE_PROJECT_ID", "ptm")
+    client = _client()
+    born = SimpleNamespace(
+        name="projects/ptm/branches/run-abc/endpoints/primary",
+        status=SimpleNamespace(endpoint_type=EndpointType.ENDPOINT_TYPE_READ_WRITE,
+                               hosts=SimpleNamespace(host="ep-born.example.com")),
+    )
+    client.postgres.list_endpoints.return_value = [born]
+    wb = BranchLifecycle(client).create("abc")
+    assert wb.endpoint_name == born.name
+    assert wb.host == "ep-born.example.com"
+    client.postgres.list_endpoints.assert_called_once_with(parent="projects/ptm/branches/run-abc")
+    client.postgres.create_endpoint.assert_not_called()
+
+
+def test_create_deletes_the_branch_when_the_endpoint_step_fails(monkeypatch):
+    monkeypatch.setattr(lakebase, "LAKEBASE_PROJECT_ID", "ptm")
+    client = _client()
+    client.postgres.create_endpoint.side_effect = RuntimeError("no compute")
+    with pytest.raises(RuntimeError, match="no compute"):
+        BranchLifecycle(client).create("abc")
+    client.postgres.delete_branch.assert_called_once_with(name="projects/ptm/branches/run-abc")
 
 
 def test_delete_removes_endpoint_then_branch_and_tolerates_missing_endpoint():
