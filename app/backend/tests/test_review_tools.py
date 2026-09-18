@@ -76,3 +76,60 @@ def test_scratch_sql_is_select_only_capped_and_budgeted():
     assert "error" in scratch.run("DELETE FROM review.stage_timeline")
     with pytest.raises(BudgetExceeded):
         scratch.run("SELECT 1")
+
+
+def test_scratch_sql_rejects_write_bypasses():
+    conn = FakeConn()
+    scratch = ScratchSql(conn, max_statements=5)
+    # SELECT...INTO form
+    out = scratch.run("SELECT 1 INTO foo")
+    assert "error" in out
+    # SELECT...FOR UPDATE lock
+    out = scratch.run("SELECT 1 FOR UPDATE")
+    assert "error" in out
+    # Writable CTE
+    out = scratch.run("WITH t AS (INSERT INTO foo VALUES (1) RETURNING id) SELECT * FROM t")
+    assert "error" in out
+
+
+def test_remaining_reads_use_the_expected_predicates(monkeypatch):
+    seen = {}
+    def fake_run_query(client, sql, params=None):
+        seen["sql"], seen["params"] = sql, params
+        if "generation_manifest" in sql:
+            return [{"anchor_date": "2026-09-17"}]
+        elif "claim_id" in (params or {}):
+            if "claim_event" in sql:
+                return [{"claim_id": "C-1", "policy_id": "P-10155"}]
+            else:
+                return [{"id": 1}]
+        return []
+    monkeypatch.setattr(tools_module, "run_query", fake_run_query)
+    tools = WarehouseTools(MagicMock())
+
+    # pattern_matches
+    result = tools.pattern_matches("P-10155", "C-1")
+    assert "policy_pattern_match" in seen["sql"]
+    assert "evidence_claim_id = :claim_id" in seen["sql"]
+    assert seen["params"] == {"policy_id": "P-10155", "claim_id": "C-1"}
+
+    # similar
+    result = tools.similar("P-10155", k=5)
+    assert "policy_similarity" in seen["sql"]
+    assert "rank <= :k" in seen["sql"]
+    assert seen["params"] == {"policy_id": "P-10155", "k": "5"}
+
+    # anchor_date
+    result = tools.anchor_date()
+    assert "ptm_bronze.generation_manifest" in seen["sql"]
+    assert result == "2026-09-17"
+
+    # claim returns first row
+    row = tools.claim("C-1")
+    assert row == {"claim_id": "C-1", "policy_id": "P-10155"}
+    assert seen["params"] == {"claim_id": "C-1"}
+
+    # claim returns None when empty
+    monkeypatch.setattr(tools_module, "run_query", lambda c, sql, params=None: [])
+    row = tools.claim("C-2")
+    assert row is None

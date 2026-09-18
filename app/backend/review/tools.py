@@ -4,6 +4,12 @@ Deterministic reads are the app's own SQL against gold, as in queries.py;
 the Genie tool is the existing conversation client; staging writes rows to
 the Working Branch as jsonb; ScratchSql is the one tool the model drives,
 and it only ever runs SELECTs on the branch.
+
+SELECT-only enforcement is layered: the string check (_SELECT_ONLY, _FORBIDDEN)
+rejects obvious write shapes; SET LOCAL transaction_read_only guarantees reads
+even if a write somehow gets through the string guard (e.g., a function call
+that writes). Word boundaries in _FORBIDDEN ensure column names like
+updated_at, created_at, row->>'update_type' are not false-positives.
 """
 
 from __future__ import annotations
@@ -109,6 +115,11 @@ def stage(conn, table: str, rows: list[dict]) -> None:
 
 
 _SELECT_ONLY = re.compile(r"^\s*(with\b[\s\S]*?\)\s*)?select\b", re.IGNORECASE)
+_FORBIDDEN = re.compile(
+    r"\b(insert|update|delete|merge|drop|alter|create|truncate|grant|revoke|copy|call|do|into|lock|vacuum|analyze)\b"
+    r"|\bfor\s+(update|share|no\s+key\s+update|key\s+share)\b",
+    re.IGNORECASE,
+)
 
 
 class ScratchSql:
@@ -125,7 +136,9 @@ class ScratchSql:
             raise BudgetExceeded(f"scratch SQL budget of {self.max_statements} statements exhausted")
         self.statements.append(sql)
         if ";" in sql.strip().rstrip(";") or not _SELECT_ONLY.match(sql or ""):
-            return {"error": "only a single SELECT statement is allowed"}
+            return {"error": "only a single read-only SELECT is allowed"}
+        if _FORBIDDEN.search(sql or ""):
+            return {"error": "only a single read-only SELECT is allowed"}
         try:
             with self._conn.transaction(), self._conn.cursor() as cur:
                 cur.execute("SET LOCAL statement_timeout = '10s'")
