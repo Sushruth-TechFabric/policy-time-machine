@@ -23,12 +23,12 @@ Two scripts verify the agent against a real workspace rather than fakes. Both ne
 # Branch lifecycle smoke test: create a Working Branch + endpoint, connect,
 # SELECT 1, delete both. Fails fast if the Lakebase project is missing or
 # the identity lacks CAN MANAGE.
-python ci/review/smoke_branch.py
+LAKEBASE_PROJECT_ID=policy-time-machine python -m ci.review.smoke_branch
 
 # Brief contract: build a Brief for the demo policy's latest claim three
 # times and assert it against the same gold tables the harness reads from,
 # plus one run with an injected failure to confirm nothing partial is ever
 # promoted. Expect 3/3, run alongside the fifteen Genie contracts
 # (ci/genie/run_contracts.py) before any recording.
-python ci/review/run_brief_contract.py
+LAKEBASE_PROJECT_ID=policy-time-machine python -m ci.review.run_brief_contract
 ```

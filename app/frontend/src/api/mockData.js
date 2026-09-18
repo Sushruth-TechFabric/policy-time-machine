@@ -650,6 +650,9 @@ function section(title, rows, sql, extra = {}) {
 const BRIEF_1 = {
   claim_id: 'C-10000001', policy_id: 'P-18492', coverage_line: 'COLL', anchor_date: '2026-09-17',
   built_at: '2026-09-17T08:00:00Z', run_id: 'run-mock1', trace_id: 'tr-mock1',
+  // The harness records the order it built the sections in (ADR-0018) and
+  // the panel renders that, not a hard-coded list.
+  section_order: ['sequence', 'relevant_changes', 'frequency', 'similar'],
   sections: {
     sequence: section('The sequence',
       [{ event_date: '2026-05-12', event_type: 'policy_change', event_category: 'address', display_label: 'Address changed', is_material: true },

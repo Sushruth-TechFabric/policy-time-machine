@@ -1,6 +1,8 @@
 import EvidenceDrawer from '../EvidenceDrawer.jsx';
 import './review.css';
 
+// The harness owns the order and records it on the Brief (ADR-0018); this
+// is only the fallback for a Brief built before the field existed.
 const ORDER = ['sequence', 'relevant_changes', 'frequency', 'similar'];
 
 function rowsToObjects(section) {
@@ -43,7 +45,7 @@ export default function BriefPanel({ brief, noAccess, onOpenAsInvestigation }) {
         <span className="brief-title">Brief for {brief.claim_id}</span>
         <span className="brief-meta">built against the dataset as of {brief.anchor_date}</span>
       </div>
-      {ORDER.map((key) => {
+      {(brief.section_order ?? ORDER).map((key) => {
         const s = brief.sections[key];
         if (!s) return null;
         const rows = rowsToObjects(s);
