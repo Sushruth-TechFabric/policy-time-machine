@@ -42,6 +42,13 @@ def test_claim_run_is_conditional_and_full_lifecycle_promotes_once(store):
     assert store.pending_claims(10) == []
 
 
+def test_the_anchor_date_is_one_row_that_the_latest_routing_pass_overwrites(store):
+    assert store.anchor_date() is None
+    store.record_anchor_date("2026-09-17")
+    store.record_anchor_date("2026-09-18")
+    assert store.anchor_date() == "2026-09-18"
+
+
 def test_failed_run_requeues_and_promotes_nothing(store):
     store.upsert_routed_claim(CLAIM, routed_by="on_demand", routing_rule=None)
     assert store.claim_run("C-1", "run-1")

@@ -96,9 +96,7 @@ def test_remaining_reads_use_the_expected_predicates(monkeypatch):
     seen = {}
     def fake_run_query(client, sql, params=None):
         seen["sql"], seen["params"] = sql, params
-        if "generation_manifest" in sql:
-            return [{"anchor_date": "2026-09-17"}]
-        elif "claim_id" in (params or {}):
+        if "claim_id" in (params or {}):
             if "claim_event" in sql:
                 return [{"claim_id": "C-1", "policy_id": "P-10155"}]
             else:
@@ -119,11 +117,6 @@ def test_remaining_reads_use_the_expected_predicates(monkeypatch):
     assert "rank <= :k" in seen["sql"]
     assert seen["params"] == {"policy_id": "P-10155", "k": "5"}
 
-    # anchor_date
-    result = tools.anchor_date()
-    assert "ptm_bronze.generation_manifest" in seen["sql"]
-    assert result == "2026-09-17"
-
     # claim returns first row
     row = tools.claim("C-1")
     assert row == {"claim_id": "C-1", "policy_id": "P-10155"}
@@ -133,3 +126,10 @@ def test_remaining_reads_use_the_expected_predicates(monkeypatch):
     monkeypatch.setattr(tools_module, "run_query", lambda c, sql, params=None: [])
     row = tools.claim("C-2")
     assert row is None
+
+
+def test_the_app_side_tools_never_reference_bronze_or_silver():
+    # Runs execute as the app service principal, which is granted gold only.
+    source = open(tools_module.__file__).read()
+    assert "ptm_bronze" not in source and "ptm_silver" not in source
+    assert not hasattr(WarehouseTools, "anchor_date")

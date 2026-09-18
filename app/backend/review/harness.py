@@ -277,6 +277,9 @@ class _Run:
         self.claim = self.deps.warehouse.claim(self.claim_id) or {}
         if not self.claim:
             raise RunFailed(f"claim {self.claim_id} not found in claim_event")
+        anchor_date = self.deps.store.anchor_date()
+        if not anchor_date:
+            raise RunFailed("the dataset anchor date is not in the review record yet; the route_claims task records it")
         self.branch = self.deps.branches.create(self.run_id)
         self.deps.store.update_run(self.run_id, branch_name=self.branch.branch_name)
         self.conn = self.deps.connect_branch(self.branch)
@@ -296,7 +299,7 @@ class _Run:
 
         return {"claim_id": self.claim_id, "policy_id": self.claim["policy_id"], "coverage_line": self.claim.get("coverage_line"),
                 "loss_date": str(self.claim.get("loss_date")), "report_date": str(self.claim.get("report_date")),
-                "anchor_date": self.deps.warehouse.anchor_date(), "built_at": datetime.now(timezone.utc).isoformat(),
+                "anchor_date": anchor_date, "built_at": datetime.now(timezone.utc).isoformat(),
                 "run_id": self.run_id, "prompt_version": PROMPT_VERSION, "section_order": list(SECTIONS),
                 "sections": sections}
 

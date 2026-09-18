@@ -28,6 +28,12 @@ DDL: tuple[str, ...] = (
          claim_id text PRIMARY KEY REFERENCES review.routed_claim(claim_id),
          outcome text NOT NULL, note text, recorded_by text NOT NULL,
          recorded_at timestamptz NOT NULL DEFAULT now())""",
+    # One row: the anchor the gold tables were generated from (ADR-0006). The
+    # routing pass writes it; the app reads it here because it is granted gold
+    # only, and the anchor's source is the bronze generation manifest.
+    """CREATE TABLE IF NOT EXISTS review.dataset (
+         singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+         anchor_date date NOT NULL, recorded_at timestamptz NOT NULL DEFAULT now())""",
     """CREATE TABLE IF NOT EXISTS review.investigation (
          investigation_id text PRIMARY KEY, conversation_id text,
          created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now())""",
