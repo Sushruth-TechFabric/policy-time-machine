@@ -72,11 +72,11 @@ A user's line of enquiry — an opening question, the results, and the follow-up
 
 **Noteworthy Pattern**:
 A named, documented, deterministic rule that a policy's history matches. Always explainable as a rule, never as a score or a judgment.
-_Avoid_: risk score, anomaly, red flag
+_Avoid_: risk score, anomaly, red flag (on the investigation surface)
 
 **Investigation Candidate**:
 A policy surfaced as worth a human look. Carries no assertion about the policyholder.
-_Avoid_: suspicious policy, fraudulent, flagged customer
+_Avoid_: suspicious policy, fraudulent, flagged customer (on the investigation surface)
 
 **Control Population**:
 Policies deliberately generated to have changes without claims, or claims without preceding changes. Present so the product cannot imply that changing a policy predicts a claim.
@@ -94,11 +94,11 @@ The policies a cohort is measured against — typically those without the charac
 
 **Routed Claim**:
 A Claim placed in front of a reviewer for a closer look, either because a Routing Rule matched it or because a user asked for one. A statement about the claim's circumstances, never about the policyholder.
-_Avoid_: flagged claim, suspicious claim, referral
+_Avoid_: flagged claim, suspicious claim, referral (on the investigation surface)
 
 **Routing Rule**:
 A named, documented, deterministic rule that decides which Claims become Routed Claims. Currently one rule: a High-Severity Claim whose Report Date is Recent. Like a Noteworthy Pattern, it is always explainable as a rule and never as a score.
-_Avoid_: triage score, risk trigger
+_Avoid_: triage score, risk trigger (on the investigation surface)
 
 **Brief**:
 The agent-assembled evidence pack for one Routed Claim: the sequence of Timeline Events before the Loss Date, the Relevant Changes and their Change Timing, how common the shape is against a Comparison Group, and the Similar Histories. Every section carries its evidence. A Brief is a record of what the dataset showed at the moment it was built, and it is never silently rebuilt. The Brief restates facts in the approved vocabulary and never weighs them; the weighing is the Disposition.
@@ -115,6 +115,28 @@ _Avoid_: job, session, task (which collide with platform terms)
 **Working Branch**:
 The agent's private, disposable copy of the review database for the duration of one Run. Everything the agent stages or scratches lives there; deleting it is how a Run terminates, whether it completed or failed.
 _Avoid_: sandbox, scratch database, fork (in prose)
+
+### Detection
+
+**Investigation surface**:
+Genie's answers, pattern names, similarity reasons, timeline labels, Brief sentences, and the interface copy around them. The fixed vocabulary rule applies here unchanged.
+
+**Detector surface**:
+The Sweep Score, the Verdict, the Case File, and the panel that shows them. May name fraud, always about a claim and always alongside a probability.
+
+**Fraud Truth**:
+The generator's hidden per-claim label. Exists for evaluation only; no product surface and no agent ever reads it.
+_Avoid_: label (in product copy), ground truth score
+
+**Sweep Score**:
+The Decider's fraud probability for a claim, computed from the claim's context alone, used to rank the queue.
+
+**Verdict**:
+The Decider's typed outcome for a claim after investigation, with a calibrated probability.
+_Avoid_: decision, disposition
+
+**Case File**:
+The evidence the investigator assembled for one Verdict, including the benign explanation it considered.
 
 ## Flagged ambiguities
 

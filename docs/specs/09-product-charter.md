@@ -66,9 +66,11 @@ Four investigations, and no more.
 
 ## 5. What it is not
 
-Not a fraud detection engine. Not a fraud score. Not underwriting, pricing or adjudication. Not a general insurance dashboard, not a general SQL chatbot, not a policy administration system.
+Not underwriting, pricing or adjudication. Not a general insurance dashboard, not a general SQL chatbot, not a policy administration system.
 
-This boundary is enforced, not merely stated. A fixed vocabulary governs every user-facing string the system can produce — Genie's answers, pattern names, similarity explanations, timeline labels, interface copy — and it is checked as a data-quality expectation in the pipeline (`02-semantic-layer.md` E18). The product surfaces patterns and names the rule that fired. It never characterises a person.
+It investigates policy history and, on a fenced detector surface (ADR-0020), estimates the probability that a claim is fraudulent — always about a claim, always beside a probability, never about a person. The reviewer's Disposition is the only decision on record.
+
+This boundary is enforced, not merely stated. A fixed vocabulary governs every user-facing string the system can produce on the investigation surface — Genie's answers, pattern names, similarity explanations, timeline labels, interface copy — and it is checked as a data-quality expectation in the pipeline (`02-semantic-layer.md` E18). The product surfaces patterns and names the rule that fired. It never characterises a person.
 
 The second half of that boundary is about causation rather than accusation. The dataset is synthetic and its patterns are deliberately seeded, so the product may describe associations and must never imply prediction. The framing sentence is fixed and used everywhere:
 
@@ -97,7 +99,7 @@ Depth over breadth was deliberate (ADR-0005). A scalar policy-level coverage amo
 3. The timeline renders even when Genie fails.
 4. Comparison outputs always show both groups with sample sizes.
 5. No user-facing string outside the approved vocabulary survives the pipeline.
-6. A judge can deploy the Asset Bundle into their own workspace and reproduce the demo.
+6. Anyone can deploy the Asset Bundle into their own workspace and reproduce the demo.
 
 ## 9. The story
 

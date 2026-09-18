@@ -111,3 +111,19 @@ The agent adds its own thin layer, on the same principle as the four above: each
 Run alongside the fifteen Genie contracts, before any recording.
 
 Steps 1 and 6 must not be separated by another regeneration. The recording and the tested dataset have to be the same dataset.
+
+---
+
+## Layer six — the fraud truth and detector surface
+
+Same principle as the other layers: each row names a distinct failure mode the fenced boundary (ADR-0020) or the planted truth (ADR-0021) would otherwise fail silently on.
+
+| Test | Asserts | Fails when |
+|---|---|---|
+| Generator detection checks (`generator/validate_truth.py`, run by `validate_task`; spec 01 §9) | Declared rates, tilts, tells, the separability band and the rules-only proxy hold on the realised book | A regeneration drifts from the declared parameters |
+| Byte identity (`generator/tests/test_byte_identity.py`) | Every pre-existing source table hashes the same, seed and anchor held fixed | Adding the truth or the claim notes moved an existing row |
+| Agreement (`generator/tests/test_pipeline_agreement.py`) | The pipeline's `claim_context` and the generator's own `behaviour.claim_flags` compute the same facts from the same source tables | The signal an agent can see (`claim_context`) differs from the signal the truth was allocated against |
+| Isolation (`generator/tests/test_truth_isolation.py`) | `claim_fraud_truth`, `ptm_eval` and `is_fraud` never appear under `app/`, `pipeline/`, or in the Genie space definition | A guarded document or module is edited to name the truth |
+| Vocabulary surfaces (`pipeline/tests/test_vocabulary_surfaces.py`, `app/backend/tests/test_review_vocabulary.py`) | `surface="investigation"` matches today's fixtures exactly; `surface="detector"` allows "fraud" about a claim but rejects the person-subject forms, a customer's name, and `ALWAYS_BANNED`; the three vocabulary copies stay equal | A surface's rule drifts from its declared behaviour, or the three copies diverge |
+
+Run alongside the fifteen Genie contracts and Layer five, before any recording.
