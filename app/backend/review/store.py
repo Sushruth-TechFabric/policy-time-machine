@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import threading
 from datetime import datetime, timezone
-from typing import Any
 
 DISPOSITION_OUTCOMES = ("closer_look", "nothing_noteworthy", "more_information")
 MISSING = object()
@@ -23,7 +22,7 @@ def _now() -> str:
 
 class InMemoryReviewStore:
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.claims: dict[str, dict] = {}
         self.runs: dict[str, dict] = {}
         self.briefs: dict[str, dict] = {}
@@ -48,15 +47,17 @@ class InMemoryReviewStore:
             return True
 
     def start_run(self, run_id: str, claim_id: str) -> None:
-        self.runs[run_id] = {"run_id": run_id, "claim_id": claim_id, "status": "running", "current_step": None,
-                             "step_count": 0, "branch_name": None, "trace_id": None, "failure": None,
-                             "started_at": _now(), "finished_at": None}
+        with self._lock:
+            self.runs[run_id] = {"run_id": run_id, "claim_id": claim_id, "status": "running", "current_step": None,
+                                 "step_count": 0, "branch_name": None, "trace_id": None, "failure": None,
+                                 "started_at": _now(), "finished_at": None}
 
     def update_run(self, run_id: str, *, current_step=None, step_count=None, branch_name=None) -> None:
-        run = self.runs[run_id]
-        if current_step is not None: run["current_step"] = current_step
-        if step_count is not None: run["step_count"] = step_count
-        if branch_name is not None: run["branch_name"] = branch_name
+        with self._lock:
+            run = self.runs[run_id]
+            if current_step is not None: run["current_step"] = current_step
+            if step_count is not None: run["step_count"] = step_count
+            if branch_name is not None: run["branch_name"] = branch_name
 
     def complete_run(self, run_id, claim_id, brief: dict, anchor_date: str, trace_id: str | None) -> None:
         with self._lock:
@@ -71,50 +72,58 @@ class InMemoryReviewStore:
             self.claims[claim_id].update(run_state="queued", active_run_id=None, updated_at=_now())
 
     def get_run(self, run_id: str) -> dict | None:
-        return dict(self.runs[run_id]) if run_id in self.runs else None
+        with self._lock:
+            return dict(self.runs[run_id]) if run_id in self.runs else None
 
     def _queue_row(self, claim: dict) -> dict:
         return {**claim, "has_brief": claim["claim_id"] in self.briefs,
                 "disposition": self.dispositions.get(claim["claim_id"])}
 
     def list_queue(self) -> list[dict]:
-        rows = [self._queue_row(c) for c in self.claims.values()]
-        return sorted(rows, key=lambda r: (r["report_date"], r["claim_id"]), reverse=True)
+        with self._lock:
+            rows = [self._queue_row(c) for c in self.claims.values()]
+            return sorted(rows, key=lambda r: (r["report_date"], r["claim_id"]), reverse=True)
 
     def get_claim(self, claim_id: str) -> dict | None:
-        claim = self.claims.get(claim_id)
-        if not claim:
-            return None
-        brief = self.briefs.get(claim_id)
-        run = self.runs.get(claim["active_run_id"]) if claim["active_run_id"] else None
-        return {**claim, "brief": brief["body"] if brief else None,
-                "brief_anchor_date": brief["anchor_date"] if brief else None,
-                "brief_built_at": brief["built_at"] if brief else None,
-                "disposition": self.dispositions.get(claim_id), "active_run": dict(run) if run else None}
+        with self._lock:
+            claim = self.claims.get(claim_id)
+            if not claim:
+                return None
+            brief = self.briefs.get(claim_id)
+            run = self.runs.get(claim["active_run_id"]) if claim["active_run_id"] else None
+            return {**claim, "brief": brief["body"] if brief else None,
+                    "brief_anchor_date": brief["anchor_date"] if brief else None,
+                    "brief_built_at": brief["built_at"] if brief else None,
+                    "disposition": self.dispositions.get(claim_id), "active_run": dict(run) if run else None}
 
     def record_disposition(self, claim_id, outcome, note, recorded_by) -> dict:
         if outcome not in DISPOSITION_OUTCOMES:
             raise ValueError(f"unknown outcome {outcome!r}")
-        if claim_id not in self.briefs:
-            raise LookupError("no Brief for this claim yet")
-        row = {"claim_id": claim_id, "outcome": outcome, "note": note, "recorded_by": recorded_by, "recorded_at": _now()}
-        self.dispositions[claim_id] = row
-        return dict(row)
+        with self._lock:
+            if claim_id not in self.briefs:
+                raise LookupError("no Brief for this claim yet")
+            row = {"claim_id": claim_id, "outcome": outcome, "note": note, "recorded_by": recorded_by, "recorded_at": _now()}
+            self.dispositions[claim_id] = row
+            return dict(row)
 
     def pending_claims(self, limit: int) -> list[dict]:
-        rows = [c for c in self.claims.values()
-                if c["claim_id"] not in self.briefs and c["claim_id"] not in self.dispositions
-                and c["run_state"] in ("queued", "failed")]
-        return sorted(rows, key=lambda r: (r["report_date"], r["claim_id"]), reverse=True)[:limit]
+        with self._lock:
+            rows = [c for c in self.claims.values()
+                    if c["claim_id"] not in self.briefs and c["claim_id"] not in self.dispositions
+                    and c["run_state"] in ("queued", "failed")]
+            return sorted(rows, key=lambda r: (r["report_date"], r["claim_id"]), reverse=True)[:limit]
 
     def create_investigation(self, investigation_id: str) -> None:
-        self.investigations[investigation_id] = None
+        with self._lock:
+            self.investigations[investigation_id] = None
 
     def get_conversation(self, investigation_id: str):
-        return self.investigations.get(investigation_id, MISSING)
+        with self._lock:
+            return self.investigations.get(investigation_id, MISSING)
 
     def set_conversation(self, investigation_id: str, conversation_id: str | None) -> None:
-        self.investigations[investigation_id] = conversation_id
+        with self._lock:
+            self.investigations[investigation_id] = conversation_id
 
 
 class ReviewStore:
@@ -123,7 +132,7 @@ class ReviewStore:
 
     def __init__(self, conn) -> None:
         self._conn = conn
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def _rows(self, sql: str, params: tuple = ()) -> list[dict]:
         with self._lock, self._conn.cursor() as cur:

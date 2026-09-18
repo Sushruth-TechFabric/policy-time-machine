@@ -62,12 +62,13 @@ def ensure_schema(conn, app_sp_id: str | None) -> None:
     with conn.cursor() as cur:
         for statement in DDL:
             cur.execute(statement)
-        if app_sp_id:
-            for statement in _grants(app_sp_id):
-                try:
+    if app_sp_id:
+        for statement in _grants(app_sp_id):
+            try:
+                with conn.transaction(), conn.cursor() as cur:
                     cur.execute(statement)
-                except Exception:  # noqa: BLE001 - the app SP granting to itself, or role absent locally
-                    conn.rollback() if not conn.autocommit else None
+            except Exception:  # noqa: BLE001 - the app SP granting to itself, or role absent locally
+                pass
 
 
 def ensure_stage_tables(conn) -> None:
