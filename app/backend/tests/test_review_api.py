@@ -13,13 +13,43 @@ def _seed_brief(store):
     store.complete_run("run-1", "C-1", {"sections": {}}, anchor_date="2026-09-17", trace_id="tr")
 
 
-def test_queue_and_claim_detail(api):
+def test_queue_and_claim_detail(api, monkeypatch):
+    monkeypatch.setattr(api_module, "lookup_claim", lambda client, claim_id: CLAIM)
     store = get_review_store(); _seed_brief(store)
     queue = api.get("/api/review/queue").json()["queue"]
     assert queue[0]["claim_id"] == "C-1" and queue[0]["has_brief"] is True
     detail = api.get("/api/review/claims/C-1").json()
     assert detail["brief"] == {"sections": {}} and detail["run_state"] == "brief_ready"
+    assert "no_access" not in detail
     assert api.get("/api/review/claims/nope").status_code == 404
+
+
+def test_claim_detail_hides_the_brief_from_a_viewer_without_access(api, monkeypatch):
+    from backend.warehouse import WarehousePermissionError
+    store = get_review_store(); _seed_brief(store)
+    store.record_disposition("C-1", "closer_look", None, "dana@example.com")
+    def denied(client, claim_id): raise WarehousePermissionError("no")
+    monkeypatch.setattr(api_module, "lookup_claim", denied)
+    detail = api.get("/api/review/claims/C-1").json()
+    assert detail["no_access"] is True
+    assert detail["brief"] is None and detail["disposition"] is None
+    # Claim metadata stays, so the view can still render the policy id and
+    # the timeline's own no-access state.
+    assert detail["policy_id"] == CLAIM["policy_id"] and detail["run_state"] == "brief_ready"
+
+
+def test_claim_detail_is_not_a_404_when_the_warehouse_has_no_such_claim(api, monkeypatch):
+    store = get_review_store(); _seed_brief(store)
+    monkeypatch.setattr(api_module, "lookup_claim", lambda client, claim_id: None)
+    assert api.get("/api/review/claims/C-1").json()["brief"] == {"sections": {}}
+
+
+def test_claim_detail_surfaces_a_warehouse_failure_as_502(api, monkeypatch):
+    from backend.warehouse import WarehouseError
+    _seed_brief(get_review_store())
+    def broken(client, claim_id): raise WarehouseError("warehouse is down")
+    monkeypatch.setattr(api_module, "lookup_claim", broken)
+    assert api.get("/api/review/claims/C-1").status_code == 502
 
 
 def test_prepare_brief_upserts_on_demand_and_starts_a_run(api, mock_client, monkeypatch):

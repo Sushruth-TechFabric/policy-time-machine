@@ -77,7 +77,9 @@ export default function ReviewView({ selectedClaimId, initialRunId = null, onSel
     }
   }
 
-  const noAccess = Boolean(timeline?.noAccess);
+  // Either read can be the one that is denied: the timeline is on-behalf-of,
+  // and the detail read is gated by the same warehouse lookup (ADR-0019).
+  const noAccess = Boolean(timeline?.noAccess || detail?.no_access);
   // A failed Run clears active_run_id and requeues the claim, so without
   // last_run the failure would be invisible once the panel unmounts.
   const lastRunFailed = !runId && !detail?.brief && detail?.last_run?.status === 'failed';

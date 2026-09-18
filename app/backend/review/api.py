@@ -42,10 +42,26 @@ def queue() -> dict:
 
 
 @router.get("/claims/{claim_id}")
-def claim_detail(claim_id: str) -> dict:
+def claim_detail(claim_id: str, client: WorkspaceClient = Depends(get_client)) -> dict:
+    """The Brief is derived from gold, so reading it is gated by the same
+    warehouse read as building it (ADR-0019): a viewer without access gets
+    the claim's metadata and `no_access`, never the Brief body. The lookup
+    finding no row is not a 404 — the claim is routed, and the review
+    record is the truth about that."""
+    try:
+        lookup_claim(client, claim_id)
+    except WarehousePermissionError:
+        denied = True
+    except WarehouseError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    else:
+        denied = False
     detail = get_review_store().get_claim(claim_id)
     if detail is None:
         raise HTTPException(status_code=404, detail=f"no routed claim {claim_id}")
+    if denied:
+        return {**detail, "brief": None, "brief_anchor_date": None, "brief_built_at": None,
+                "disposition": None, "no_access": True}
     return detail
 
 
