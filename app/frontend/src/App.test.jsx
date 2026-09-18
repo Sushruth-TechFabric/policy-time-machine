@@ -11,6 +11,11 @@ vi.mock('./api/client.js', async () => {
     getSimilar: mockData.mockGetSimilar,
     getPatterns: mockData.mockGetPatterns,
     getChips: mockData.mockGetChips,
+    getReviewQueue: mockData.mockGetReviewQueue,
+    getReviewClaim: mockData.mockGetReviewClaim,
+    prepareBrief: mockData.mockPrepareBrief,
+    getRun: mockData.mockGetRun,
+    recordDisposition: mockData.mockRecordDisposition,
   };
 });
 
@@ -138,5 +143,23 @@ describe('App smoke test (mock mode)', () => {
     expect(screen.queryByText(/SELECT/)).not.toBeInTheDocument();
     fireEvent.click(toggle);
     expect(await screen.findByText(/SELECT/)).toBeInTheDocument();
+  });
+
+  it('a claim card offers "Prepare a Brief" and switches to the Review view', async () => {
+    render(<App />);
+    await ask('What changed on P-18492 in the last year?');
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Prepare a Brief' }).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Prepare a Brief' })[0]);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Review' })).toHaveAttribute('aria-pressed', 'true'));
+  });
+
+  it('a seeded tab asks its question on mount', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    await waitFor(() => screen.getByRole('button', { name: /C-10000001/ }));
+    fireEvent.click(screen.getByRole('button', { name: /C-10000001/ }));
+    await waitFor(() => screen.getAllByRole('button', { name: 'Open as investigation' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Open as investigation' })[0]);
+    await waitFor(() => expect(screen.getByText(/What changed on policy P-18492/)).toBeInTheDocument());
   });
 });

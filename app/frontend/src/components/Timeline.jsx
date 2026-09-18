@@ -27,7 +27,7 @@ function DeltaLine({ event }) {
   );
 }
 
-function ClaimCard({ card, patterns }) {
+function ClaimCard({ card, patterns, onPrepareBrief }) {
   const event = card.deltas[0];
   const band = severityBand(event.amount);
   const matched = patternsForCard(card, patterns);
@@ -48,6 +48,16 @@ function ClaimCard({ card, patterns }) {
         {band && <div className="tl-severity-badge" data-band={band}>{band}</div>}
         {event.coverage_line && <div className="delta-line">{event.coverage_line} line</div>}
         {event.display_label && <div className="tl-claim-note">{event.display_label}</div>}
+        {onPrepareBrief && event.source_id && (
+          <button
+            type="button"
+            className="prepare-brief-btn"
+            onClick={() => onPrepareBrief(event.source_id)}
+            title="Route this claim and build its Brief"
+          >
+            Prepare a Brief
+          </button>
+        )}
       </div>
     </li>
   );
@@ -89,8 +99,8 @@ function ChangeCard({ card, patterns }) {
   );
 }
 
-function TimelineCard({ card, patterns }) {
-  if (card.kind === 'claim') return <ClaimCard card={card} patterns={patterns} />;
+function TimelineCard({ card, patterns, onPrepareBrief }) {
+  if (card.kind === 'claim') return <ClaimCard card={card} patterns={patterns} onPrepareBrief={onPrepareBrief} />;
   if (card.kind === 'renewal' || card.kind === 'policy_created') return <InfoCard card={card} />;
   return <ChangeCard card={card} patterns={patterns} />;
 }
@@ -102,7 +112,7 @@ function TimelineCard({ card, patterns }) {
  * a named-tooltip marker. Renders from its own fetch and never shows a
  * spinner tied to Genie (docs/specs/06-ux-specification.md §2, §3).
  */
-export default function Timeline({ policyId, data, onFindSimilar, findSimilarBusy }) {
+export default function Timeline({ policyId, data, onFindSimilar, findSimilarBusy, onPrepareBrief }) {
   if (!policyId) return null;
 
   return (
@@ -136,7 +146,7 @@ export default function Timeline({ policyId, data, onFindSimilar, findSimilarBus
         <>
           <ul className="tl-spine">
             {groupTimelineEvents(data.events).map((card) => (
-              <TimelineCard key={card.id} card={card} patterns={data.patterns} />
+              <TimelineCard key={card.id} card={card} patterns={data.patterns} onPrepareBrief={onPrepareBrief} />
             ))}
           </ul>
           <button

@@ -3,6 +3,7 @@ import './App.css';
 import AppHeader from './components/AppHeader.jsx';
 import InvestigationWorkspace from './components/InvestigationWorkspace.jsx';
 import ReviewView from './views/ReviewView.jsx';
+import { prepareBrief } from './api/client.js';
 
 const TABS_KEY = 'ptm.tabs.v1';
 const investigationKey = (tabId) => `ptm.inv.${tabId}.v1`;
@@ -109,6 +110,12 @@ function App() {
               storageKey={investigationKey(tab.id)}
               onLabel={(label) => setLabel(tab.id, label)}
               onNewInvestigation={addTab}
+              seedQuestion={tab.seedQuestion ?? null}
+              onPrepareBrief={async (claimId) => {
+                try { await prepareBrief(claimId); } catch { /* the Review view shows the state either way */ }
+                setReviewClaimId(claimId);
+                setView('review');
+              }}
             />
           </div>
         ))}

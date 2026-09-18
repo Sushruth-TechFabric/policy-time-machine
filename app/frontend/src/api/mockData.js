@@ -672,7 +672,7 @@ const BRIEF_1 = {
     similar: section('Similar histories',
       [{ similar_policy_id: 'P-20114', rank: 1, similarity_score: 0.91, top_reasons: 'comparable change velocity; coverage increase preceding a same-line claim' }],
       'SELECT * FROM policy_similarity WHERE policy_id = :policy_id AND rank <= 5',
-      { sentence: null, sentence_dropped: true, sentence_dropped_reason: 'vocabulary: suspicious' }),
+      { sentence: null, sentence_dropped: true, sentence_dropped_reason: 'vocabulary check' }),
   },
 };
 
