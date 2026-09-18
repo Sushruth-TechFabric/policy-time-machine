@@ -212,7 +212,7 @@ resources:
             dependencies:
               - "pandas>=3.0,<4"
               - "databricks-sdk>=0.89,<1"
-              - "psycopg[binary]>=3.2,<4"
+              - "psycopg[binary]>=3.2,<3.3"  # 3.3 hangs in libpq init on serverless (2026-09-17)
               - "mlflow>=3.1,<4"
       tasks:
         - task_key: generate
