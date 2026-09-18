@@ -119,7 +119,7 @@ const P_18492_TIMELINE = {
       display_label: '97% of the COLL limit at the time of loss',
       amount: 24700,
       is_material: false,
-      source_id: 'CLM-90142',
+      source_id: 'C-10000001',
     },
   ],
 };
@@ -161,7 +161,7 @@ const P_20114_TIMELINE = {
       display_label: 'Claim filed on the recently raised BI line',
       amount: 61200,
       is_material: false,
-      source_id: 'CLM-91887',
+      source_id: 'C-10000002',
     },
   ],
 };
@@ -202,7 +202,7 @@ const P_11907_TIMELINE = {
       display_label: 'Claim filed',
       amount: 8400,
       is_material: false,
-      source_id: 'CLM-88213',
+      source_id: 'C-10000003',
     },
   ],
 };
@@ -263,7 +263,7 @@ function generateSyntheticTimeline(policyId) {
         display_label: 'Claim filed',
         amount,
         is_material: false,
-        source_id: `CLM-${Math.floor(rng() * 90000 + 10000)}`,
+        source_id: `C-${Math.floor(rng() * 90000000 + 10000000)}`,
       },
     ],
   };
@@ -706,8 +706,29 @@ export function mockGetReviewClaim(claimId) {
            last_run: lastRun(claimId) };
 }
 
+// Mirrors the real API: an unknown claim id is looked up and upserted as an
+// on-demand Routed Claim before the Run starts, so "Prepare a Brief" on a
+// timeline works for any claim on screen, not only the pre-routed two.
+// Gold claim ids; the real lookup finds no row for anything else and 404s.
+const CLAIM_ID_RE = /^C-\d{8}$/;
+
+function upsertOnDemand(claimId) {
+  if (!CLAIM_ID_RE.test(claimId)) return null;
+  for (const [policyId, authored] of Object.entries(AUTHORED_POLICIES)) {
+    const event = authored.timeline.events.find((e) => e.event_type === 'claim_filed' && e.source_id === claimId);
+    if (!event) continue;
+    const row = { claim_id: claimId, policy_id: policyId, coverage_line: event.coverage_line ?? 'COLL',
+                  loss_date: event.event_date, report_date: event.event_date, settled_amount: event.amount ?? 0,
+                  severity_band: 'severe', routed_by: 'on_demand', routing_rule: null,
+                  run_state: 'queued', active_run_id: null, has_brief: false, disposition: null };
+    REVIEW_QUEUE.push(row);
+    return row;
+  }
+  return null;
+}
+
 export function mockPrepareBrief(claimId) {
-  const row = REVIEW_QUEUE.find((r) => r.claim_id === claimId);
+  const row = REVIEW_QUEUE.find((r) => r.claim_id === claimId) ?? upsertOnDemand(claimId);
   if (!row) throw new Error('Request failed (404)');
   const runId = `run-${claimId}`;
   RUNS[runId] = { run_id: runId, claim_id: claimId, status: 'running', current_step: null, step_count: 0, branch_name: `projects/policy-time-machine/branches/${runId}`, trace_id: null, failure: null, started_at: new Date().toISOString() };

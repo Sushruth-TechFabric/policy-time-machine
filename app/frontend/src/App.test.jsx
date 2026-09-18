@@ -151,6 +151,14 @@ describe('App smoke test (mock mode)', () => {
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'Prepare a Brief' }).length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByRole('button', { name: 'Prepare a Brief' })[0]);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Review' })).toHaveAttribute('aria-pressed', 'true'));
+    // The view must land on the claim it was handed, not on "No Brief yet":
+    // either the Run it just started is narrating, or the Brief is already
+    // there. This fails if the timeline's claim id and the review record's
+    // disagree, or if the run_id from the POST is dropped.
+    await waitFor(() => expect(screen.getByText(/Working Branch created|Brief for C-/)).toBeInTheDocument());
+    // Let the Run finish before the test ends: the mock review record is
+    // module state shared with the tests after this one.
+    await waitFor(() => expect(screen.getByText('Brief for C-10000001')).toBeInTheDocument(), { timeout: 5000 });
   });
 
   it('a seeded tab asks its question on mount', async () => {
