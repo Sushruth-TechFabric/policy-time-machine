@@ -24,3 +24,6 @@ data/
 
 # Transient Genie API payloads written by genie/build_space.py
 genie/.*_payload.json
+
+# Brief contract run results
+ci/review/results/
