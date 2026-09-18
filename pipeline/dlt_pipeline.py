@@ -1,13 +1,16 @@
 """Lakeflow Declarative Pipeline for the Policy Time Machine semantic layer.
 
-Builds the six curated tables of `docs/specs/02-semantic-layer.md` from the raw
+Builds the curated tables of `docs/specs/02-semantic-layer.md` from the raw
 source tables of spec 01 §3, with the expectations of spec 02 §8 enforced at
-write time (ADR-0013).
+write time (ADR-0013). The Genie space still has six tables; the pipeline now
+publishes seven — ``claim_context`` is curated and published but deliberately
+not attached to the space (ADR-0020).
 
 The catalog follows the medallion layout (ADR-0016): sources are read from the
 ``ptm_bronze`` schema, the derived change stream publishes to ``ptm_silver``,
-and the six curated tables publish to ``ptm_gold`` — the pipeline's default
-target schema, and the only schema the Genie space can see.
+and the seven curated tables publish to ``ptm_gold`` — the pipeline's default
+target schema. The Genie space still has six; the pipeline now publishes
+seven, and ``ptm_gold`` is the only schema the Genie space can see.
 
 This module is a **thin wrapper and nothing else**. Every transformation rule
 lives in ``transformations.py`` and every expectation predicate lives in
@@ -195,6 +198,8 @@ def _build() -> dict[str, Any]:
     policy_coverage_history = _source("policy_coverage_history")
     claims = _source("claim")
     claim_payment = _source("claim_payment") if _exists("claim_payment") else None
+    vehicle = _source("vehicle")
+    claim_note = _source("claim_note")
 
     # The change stream is derived in-process by the same function the silver
     # change_event flow publishes, never read back through the catalog: on a
@@ -210,6 +215,8 @@ def _build() -> dict[str, Any]:
         policy_history=policy_history,
         policy_coverage_history=policy_coverage_history,
         claim_payment=claim_payment,
+        vehicle=vehicle,
+        claim_note=claim_note,
         anchor_date=ANCHOR_DATE,
         k=K,
     )
@@ -312,7 +319,8 @@ def _changes() -> "pd.DataFrame":
 
 
 # ---------------------------------------------------------------------------
-# Gold — the six curated tables (spec 02 §2–§7), the Genie space
+# Gold — the seven curated tables (spec 02 §2–§7). The Genie space still has
+# six; the pipeline now publishes seven — claim_context is not attached to it.
 # ---------------------------------------------------------------------------
 
 @dlt.table(
@@ -341,6 +349,21 @@ def policy_change_event():
 def claim_event():
     dlt.read("policy_profile")  # FK parent — its PK must exist before this flow declares the FK
     return _emit("claim_event")
+
+
+@dlt.table(
+    name="claim_context",
+    schema=_gold_schema_ddl("claim_context"),
+    comment="One row per claim: tenure, claim history, recent policy events and "
+            "the first-notice note. Read by the detector; not part of the Genie space.",
+    table_properties={"quality": "gold"},
+)
+@dlt.expect_all_or_fail(EXPECTATIONS["claim_context"])
+def claim_context():
+    # FK parents — their PKs must exist before this flow declares the FKs
+    dlt.read("policy_profile")
+    dlt.read("claim_event")
+    return _emit("claim_context")
 
 
 @dlt.table(
@@ -405,7 +428,8 @@ def policy_similarity():
 # A DLT expectation is a row predicate over one dataset, so invariants that span
 # tables are enforced by materialising the join or the window and failing on any
 # violating row. These are temporary: they exist to fail the run, not to be read
-# by Genie, and so are never part of the six-table Genie space (ADR-0002).
+# by Genie, and so are never part of the six-table Genie space (ADR-0002). The
+# Genie space still has six tables; the pipeline now publishes seven.
 # ---------------------------------------------------------------------------
 
 @dlt.table(
@@ -430,6 +454,22 @@ def qa_severity_agreement():
             F.col("k.coverage_line"),
         )
     )
+
+
+@dlt.table(
+    name="qa_claim_context_coverage",
+    comment="E21 — claim_context holds exactly one row per claim_event row and no others.",
+    temporary=True,
+)
+@dlt.expect_all_or_fail(X.QA_CLAIM_CONTEXT_COVERAGE)
+def qa_claim_context_coverage():
+    events = dlt.read("claim_event").select("claim_id", F.lit(True).alias("in_event"))
+    context = (
+        dlt.read("claim_context").groupBy("claim_id")
+        .agg(F.count(F.lit(1)).alias("context_rows"))
+        .withColumn("in_context", F.lit(True))
+    )
+    return events.join(context, "claim_id", "full_outer")
 
 
 @dlt.table(

@@ -217,10 +217,12 @@ def test_every_table_matches_its_declared_schema(curated, table):
 
 
 def test_the_genie_space_is_exactly_six_tables(curated):
-    assert set(curated) == {
+    assert set(T.GENIE_SPACE_TABLES) == {
         "policy_change_event", "claim_event", "policy_profile",
         "policy_timeline_event", "policy_pattern_match", "policy_similarity",
     }
+    # claim_context is curated and published, but never attached to the space (ADR-0020).
+    assert set(curated) - set(T.GENIE_SPACE_TABLES) == {"claim_context"}
 
 
 def test_no_scd2_column_leaks_into_the_genie_space(curated):

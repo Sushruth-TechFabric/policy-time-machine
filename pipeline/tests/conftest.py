@@ -281,6 +281,21 @@ def _claim_payments() -> list[dict]:
     ]
 
 
+def _vehicles() -> list[dict]:
+    """One vehicle per claimed policy, added at inception - so no fixture claim
+    carries a new-vehicle flag; test_claim_context.py plants its own."""
+    return []
+
+
+def _claim_notes() -> list[dict]:
+    return [
+        {"claim_id": c["claim_id"],
+         "note_text": "Caller reports a collision with another car while changing lanes. "
+                      "Police attended and gave a reference number."}
+        for c in _claims()
+    ]
+
+
 # ---------------------------------------------------------------------------
 # pytest fixtures
 # ---------------------------------------------------------------------------
@@ -300,6 +315,8 @@ def sources() -> dict:
         "changes": pd.DataFrame(_changes()),
         "claims": pd.DataFrame(_claims()),
         "claim_payment": pd.DataFrame(_claim_payments()),
+        "vehicle": pd.DataFrame(_vehicles(), columns=["vehicle_id", "policy_id", "added_date"]),
+        "claim_note": pd.DataFrame(_claim_notes()),
     }
 
 
@@ -313,6 +330,8 @@ def curated(sources, anchor_date) -> dict:
         policy_history=sources["policy_history"],
         policy_coverage_history=sources["policy_coverage_history"],
         claim_payment=sources["claim_payment"],
+        vehicle=sources["vehicle"],
+        claim_note=sources["claim_note"],
         anchor_date=anchor_date,
         k=5,  # eleven policies in the fixture; K=20 is asserted separately
     )

@@ -35,18 +35,19 @@ def _sql_regex_to_python(pattern: str) -> str:
 
 def test_every_dataset_has_a_catalogue():
     assert set(CATALOGUE) == set(T.SCHEMAS) | {
-        "qa_severity_agreement", "qa_pattern_consistency", "qa_similarity_rank_density"
+        "qa_severity_agreement", "qa_pattern_consistency", "qa_similarity_rank_density",
+        "qa_claim_context_coverage",
     }
 
 
-def test_all_twenty_numbered_expectations_are_enforced_somewhere():
+def test_all_numbered_expectations_are_enforced_somewhere():
     numbered = set()
     for rules in CATALOGUE.values():
         for name in rules:
             match = re.match(r"^E(\d+)_", name)
             if match:
                 numbered.add(int(match.group(1)))
-    assert numbered == set(range(1, 21)), sorted(set(range(1, 21)) - numbered)
+    assert numbered == set(range(1, 24)), sorted(set(range(1, 24)) - numbered)
 
 
 def test_e20_is_documented_as_a_schema_review_not_a_row_predicate():
@@ -66,8 +67,8 @@ def test_expectations_fail_the_run_rather_than_quarantining_rows():
     assert "expect_all_or_fail" in PIPELINE_SOURCE
     assert "expect_all_or_drop" not in PIPELINE_SOURCE
     decorators = re.findall(r"^@dlt\.expect_all_or_fail", PIPELINE_SOURCE, re.M)
-    # Six curated tables plus the three cross-table assertion tables.
-    assert len(decorators) == 9
+    # Seven curated tables plus the four cross-table assertion tables.
+    assert len(decorators) == 11
 
 
 def test_every_curated_table_has_expectations_attached():
@@ -219,3 +220,12 @@ def test_the_fixture_output_satisfies_the_catalogue(change_event, key):
     """The expectations are the tests (implementation plan, P2): the same
     invariants the pipeline enforces at write time hold on the fixture build."""
     assert _PY_EQUIVALENTS[key](change_event)
+
+
+def test_claim_context_carries_the_vocabulary_and_identifier_guards():
+    rules = CATALOGUE["claim_context"]
+    assert "E18_note_text_uses_only_approved_vocabulary" in rules
+    assert "E19_note_text_does_not_contain_a_policy_id" in rules
+    assert "E22_note_text_is_present" in rules
+    assert "E23_counts_and_tenure_are_never_negative" in rules
+    assert "E21_every_claim_has_exactly_one_context_row" in CATALOGUE["qa_claim_context_coverage"]

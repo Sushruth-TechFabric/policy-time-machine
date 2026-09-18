@@ -22,6 +22,8 @@ Coverage map:
 * **E20** — a property of the schema, not of a row; enforced by review against
   the specification. The review is written out in ``dlt_pipeline``'s docstring
   and executed as a column-name check in ``tests/test_profile.py``.
+* **E21–E23** — `claim_context`: coverage of `claim_event` (E21, a QA join),
+  note present (E22), non-negative counts (E23).
 """
 
 from __future__ import annotations
@@ -166,6 +168,26 @@ def claim_event(anchor_sql: str) -> dict[str, str]:
     }
 
 
+def claim_context() -> dict[str, str]:
+    return {
+        # E18 — the note is investigation-surface text: Genie is not attached to
+        # this table today, and must not be able to echo an accusation if it ever is.
+        "E18_note_text_uses_only_approved_vocabulary": f"NOT (note_text RLIKE '{BANNED_RLIKE}')",
+        # E19
+        "E19_note_text_does_not_contain_a_policy_id": f"NOT (note_text RLIKE '{POLICY_ID_RLIKE}')",
+        "E19_claim_id_does_not_look_like_a_policy_id": f"NOT (claim_id RLIKE '{POLICY_ID_RLIKE}')",
+        "E19_policy_id_matches_the_policy_pattern": f"policy_id RLIKE '{POLICY_ID_RLIKE}'",
+        # E22
+        "E22_note_text_is_present": "note_text IS NOT NULL AND length(trim(note_text)) > 0",
+        # E23
+        "E23_counts_and_tenure_are_never_negative":
+            "prior_claims_count >= 0 AND policy_age_at_loss_days >= 0 "
+            "AND (days_since_prior_claim IS NULL OR days_since_prior_claim >= 0)",
+        "prior_claim_gap_is_null_exactly_when_there_is_no_prior_claim":
+            "(prior_claims_count = 0) = (days_since_prior_claim IS NULL)",
+    }
+
+
 def policy_profile(anchor_sql: str) -> dict[str, str]:
     return {
         # E20 is a schema review (see the module docstring). Its row-level
@@ -284,6 +306,13 @@ QA_SIMILARITY_RANK_DENSITY = {
         "`rank` = expected_rank",
 }
 
+#: E21 — a full outer join of claim_event and claim_context on claim_id; a row
+#: missing either side is a claim without context or context without a claim.
+QA_CLAIM_CONTEXT_COVERAGE = {
+    "E21_every_claim_has_exactly_one_context_row":
+        "in_event IS NOT NULL AND in_context IS NOT NULL AND context_rows = 1",
+}
+
 
 def all_expectations(anchor_date: _dt.date, k: int = T.K_NEIGHBOURS) -> dict[str, dict[str, str]]:
     """Every catalogue, keyed by dataset name. Used by the pipeline and the tests."""
@@ -291,6 +320,7 @@ def all_expectations(anchor_date: _dt.date, k: int = T.K_NEIGHBOURS) -> dict[str
     return {
         "policy_change_event": policy_change_event(anchor_sql),
         "claim_event": claim_event(anchor_sql),
+        "claim_context": claim_context(),
         "policy_profile": policy_profile(anchor_sql),
         "policy_timeline_event": policy_timeline_event(anchor_sql),
         "policy_pattern_match": policy_pattern_match(anchor_sql),
@@ -298,4 +328,5 @@ def all_expectations(anchor_date: _dt.date, k: int = T.K_NEIGHBOURS) -> dict[str
         "qa_severity_agreement": QA_SEVERITY_AGREEMENT,
         "qa_pattern_consistency": QA_PATTERN_CONSISTENCY,
         "qa_similarity_rank_density": QA_SIMILARITY_RANK_DENSITY,
+        "qa_claim_context_coverage": QA_CLAIM_CONTEXT_COVERAGE,
     }

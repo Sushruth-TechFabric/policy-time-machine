@@ -173,6 +173,17 @@ CLAIM_EVENT_SCHEMA: tuple[tuple[str, str], ...] = (
     ("relevant_coverage_change_prior_60d", "boolean"),
 )
 
+#: Behaviour facts and the first-notice note for one claim. Read by the detector
+#: (sub-projects B-D); deliberately NOT part of the Genie space (ADR-0020).
+CLAIM_CONTEXT_SCHEMA: tuple[tuple[str, str], ...] = (
+    ("claim_id", "string"), ("policy_id", "string"), ("policy_age_at_loss_days", "int"),
+    ("prior_claims_count", "int"), ("days_since_prior_claim", "int"),
+    ("reinstated_within_30d_before_loss", "boolean"),
+    ("vehicle_added_within_30d_before_loss", "boolean"),
+    ("note_text", "string"),
+)
+RECENT_BEFORE_LOSS_DAYS = 30
+
 PATTERN_CODES: tuple[str, ...] = (
     "coverage_raised_then_claimed_same_line",
     "deductible_lowered_before_claim",
@@ -241,9 +252,17 @@ POLICY_SIMILARITY_SCHEMA: tuple[tuple[str, str], ...] = (
     ("similarity_score", "decimal"), ("top_reasons", "string"),
 )
 
+#: The tables attached to the Genie space (ADR-0002). claim_context is published
+#: to the same schema but deliberately left out (ADR-0020).
+GENIE_SPACE_TABLES: tuple[str, ...] = (
+    "policy_change_event", "claim_event", "policy_profile",
+    "policy_timeline_event", "policy_pattern_match", "policy_similarity",
+)
+
 SCHEMAS: dict[str, tuple[tuple[str, str], ...]] = {
     "policy_change_event": POLICY_CHANGE_EVENT_SCHEMA,
     "claim_event": CLAIM_EVENT_SCHEMA,
+    "claim_context": CLAIM_CONTEXT_SCHEMA,
     "policy_profile": POLICY_PROFILE_SCHEMA,
     "policy_timeline_event": POLICY_TIMELINE_EVENT_SCHEMA,
     "policy_pattern_match": POLICY_PATTERN_MATCH_SCHEMA,
@@ -284,6 +303,13 @@ GOLD_KEYS: dict[str, TableKeys] = {
         primary_key=("claim_id",),
         foreign_keys=(
             _fk("claim_event", ("policy_id",), "policy_profile", ("policy_id",)),
+        ),
+    ),
+    "claim_context": TableKeys(
+        primary_key=("claim_id",),
+        foreign_keys=(
+            _fk("claim_context", ("claim_id",), "claim_event", ("claim_id",)),
+            _fk("claim_context", ("policy_id",), "policy_profile", ("policy_id",)),
         ),
     ),
     "policy_change_event": TableKeys(
@@ -1127,6 +1153,80 @@ def build_claim_event(
     return frame(out, CLAIM_EVENT_SCHEMA)
 
 
+def _on_or_within_before(loss_date: _dt.date, dates: Sequence[_dt.date]) -> bool:
+    return any(0 <= days_between(loss_date, d) <= RECENT_BEFORE_LOSS_DAYS for d in dates)
+
+
+def build_claim_context(
+    claims: Any, policy_history: Any, vehicle: Any = None, claim_note: Any = None
+) -> pd.DataFrame:
+    """One row per claim: tenure, claim history, recent policy events, the note.
+
+    "Inception" is the first ``effective_from`` of the policy. A reinstatement is
+    the version that *enters* the ``reinstated`` status, not every version that
+    still carries it. A new vehicle is one added after inception, so the vehicle
+    a policy started with never counts. Windows are 0..30 days before the Loss
+    Date, inclusive at both ends.
+    """
+    starts = _policy_start_dates(policy_history)
+
+    reinstated_on: dict[str, list[_dt.date]] = {}
+    for policy_id, versions in _group_by(records(policy_history), "policy_id").items():
+        previous = None
+        for row in sorted(versions, key=lambda r: int(r.get("version_no") or 0)):
+            status = to_str(row.get("policy_status"))
+            entered = to_date(row.get("effective_from"))
+            if status == "reinstated" and previous != "reinstated" and entered is not None:
+                reinstated_on.setdefault(to_str(policy_id), []).append(entered)
+            previous = status
+
+    added_on: dict[str, list[_dt.date]] = {}
+    for row in records(vehicle):
+        policy_id = to_str(row.get("policy_id"))
+        added, start = to_date(row.get("added_date")), starts.get(policy_id)
+        if added is not None and start is not None and added > start:
+            added_on.setdefault(policy_id, []).append(added)
+
+    note_of = {to_str(r.get("claim_id")): to_str(r.get("note_text")) for r in records(claim_note)}
+
+    out: list[dict[str, Any]] = []
+    for policy_key, policy_claims in _group_by(records(claims), "policy_id").items():
+        policy_id = to_str(policy_key)
+        start = starts.get(policy_id)
+        for source in policy_claims:
+            claim_id = to_str(source.get("claim_id"))
+            loss_date = to_date(source.get("loss_date"))
+            report_date = to_date(source.get("report_date"))
+            earlier_reports = sorted(
+                to_date(c.get("report_date")) for c in policy_claims
+                if report_date is not None and to_date(c.get("report_date")) is not None
+                and to_date(c.get("report_date")) < report_date
+            )
+            out.append({
+                "claim_id": claim_id,
+                "policy_id": policy_id,
+                "policy_age_at_loss_days": (
+                    days_between(loss_date, start)
+                    if loss_date is not None and start is not None else None
+                ),
+                "prior_claims_count": len(earlier_reports),
+                "days_since_prior_claim": (
+                    days_between(report_date, earlier_reports[-1]) if earlier_reports else None
+                ),
+                "reinstated_within_30d_before_loss": (
+                    loss_date is not None
+                    and _on_or_within_before(loss_date, reinstated_on.get(policy_id, []))
+                ),
+                "vehicle_added_within_30d_before_loss": (
+                    loss_date is not None
+                    and _on_or_within_before(loss_date, added_on.get(policy_id, []))
+                ),
+                "note_text": note_of.get(claim_id),
+            })
+    out.sort(key=lambda r: r["claim_id"] or "")
+    return frame(out, CLAIM_CONTEXT_SCHEMA)
+
+
 # ---------------------------------------------------------------------------
 # 3. policy_pattern_match  (spec 02 §6, ADR-0009) — the single rule pass
 # ---------------------------------------------------------------------------
@@ -1901,10 +2001,12 @@ def build_all(
     policy_history: Any,
     policy_coverage_history: Any,
     claim_payment: Any = None,
+    vehicle: Any = None,
+    claim_note: Any = None,
     anchor_date: Any,
     k: int = K_NEIGHBOURS,
 ) -> dict[str, pd.DataFrame]:
-    """All six curated tables, in dependency order.
+    """All seven curated tables, in dependency order.
 
     Used by the tests and by ``dlt_pipeline.py``'s driver-side build so that the
     ordering constraint — patterns before profile, profile before similarity —
@@ -1914,6 +2016,7 @@ def build_all(
     claim_event = build_claim_event(
         claims, changes, policy_coverage_history, policy_history, anchor_date
     )
+    claim_context = build_claim_context(claims, policy_history, vehicle, claim_note)
     pattern_match = build_policy_pattern_match(change_event, claim_event)
     profile = build_policy_profile(
         policy_history, policy_coverage_history, change_event, claim_event,
@@ -1926,6 +2029,7 @@ def build_all(
     return {
         "policy_change_event": change_event,
         "claim_event": claim_event,
+        "claim_context": claim_context,
         "policy_profile": profile,
         "policy_timeline_event": timeline,
         "policy_pattern_match": pattern_match,
