@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 
 DISPOSITION_OUTCOMES = ("closer_look", "nothing_noteworthy", "more_information")
 MISSING = object()
+STALE_RUN_SECONDS = 1200  # A Run's wall clock is capped at 180s + demo hold, branch TTL is 900s; 20 min is safely past both
 
 
 def _now() -> str:
@@ -41,10 +42,18 @@ class InMemoryReviewStore:
     def claim_run(self, claim_id: str, run_id: str) -> bool:
         with self._lock:
             row = self.claims.get(claim_id)
-            if not row or row["run_state"] not in ("queued", "failed"):
+            if not row:
                 return False
-            row.update(run_state="in_progress", active_run_id=run_id, updated_at=_now())
-            return True
+            if row["run_state"] in ("queued", "failed"):
+                row.update(run_state="in_progress", active_run_id=run_id, updated_at=_now())
+                return True
+            if row["run_state"] == "in_progress":
+                updated_at = datetime.fromisoformat(row["updated_at"])
+                elapsed = (datetime.now(timezone.utc) - updated_at).total_seconds()
+                if elapsed > STALE_RUN_SECONDS:
+                    row.update(run_state="in_progress", active_run_id=run_id, updated_at=_now())
+                    return True
+            return False
 
     def start_run(self, run_id: str, claim_id: str) -> None:
         with self._lock:
@@ -161,8 +170,8 @@ class ReviewStore:
     def claim_run(self, claim_id: str, run_id: str) -> bool:
         return self._exec(
             """UPDATE review.routed_claim SET run_state = 'in_progress', active_run_id = %s, updated_at = now()
-               WHERE claim_id = %s AND run_state IN ('queued', 'failed')""",
-            (run_id, claim_id),
+               WHERE claim_id = %s AND (run_state IN ('queued', 'failed') OR (run_state = 'in_progress' AND updated_at < now() - make_interval(secs => %s)))""",
+            (run_id, claim_id, STALE_RUN_SECONDS),
         ) == 1
 
     def start_run(self, run_id: str, claim_id: str) -> None:

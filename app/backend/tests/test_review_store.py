@@ -71,3 +71,17 @@ def test_investigation_conversation_map(store):
     assert store.get_conversation("inv-1") is None
     store.set_conversation("inv-1", "conv-9")
     assert store.get_conversation("inv-1") == "conv-9"
+
+
+def test_stale_in_progress_claim_can_be_reclaimed(store):
+    from datetime import datetime, timezone, timedelta
+    store.upsert_routed_claim(CLAIM, routed_by="rule", routing_rule="High-severity claim reported in the last 90 days.")
+    assert store.claim_run("C-1", "run-1") is True
+    assert store.claim_run("C-1", "run-2") is False
+    if isinstance(store, InMemoryReviewStore):
+        old_time = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
+        store.claims["C-1"]["updated_at"] = old_time
+    else:
+        store._exec("UPDATE review.routed_claim SET updated_at = now() - interval '30 minutes' WHERE claim_id = 'C-1'")
+    assert store.claim_run("C-1", "run-2") is True
+    assert store.get_claim("C-1")["active_run_id"] == "run-2"

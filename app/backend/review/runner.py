@@ -2,7 +2,10 @@
 the Workflow (work_queue) or in one background thread per claim from the
 app (RunRegistry). Runs are never concurrent across claims either: the
 registry serialises through a process lock, because Free Edition allows
-one non-default Lakebase branch with compute at a time."""
+one non-default Lakebase branch with compute at a time. A Run killed with
+the process leaves its claim in_progress; the store's stale-claim rule
+(STALE_RUN_SECONDS) lets the next nightly pass or on-demand request reclaim
+it, and the branch TTL reclaims the Working Branch."""
 
 from __future__ import annotations
 
