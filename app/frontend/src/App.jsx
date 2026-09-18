@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import AppHeader from './components/AppHeader.jsx';
 import InvestigationWorkspace from './components/InvestigationWorkspace.jsx';
+import ReviewView from './views/ReviewView.jsx';
 
 const TABS_KEY = 'ptm.tabs.v1';
 const investigationKey = (tabId) => `ptm.inv.${tabId}.v1`;
@@ -29,6 +30,8 @@ function App() {
   const [initial] = useState(() => loadStoredTabs() ?? { tabs: [{ id: 1, label: null }], activeId: 1 });
   const [tabs, setTabs] = useState(initial.tabs);
   const [activeId, setActiveId] = useState(initial.activeId);
+  const [view, setView] = useState('investigate');
+  const [reviewClaimId, setReviewClaimId] = useState(null);
   const nextIdRef = useRef(initial.tabs.reduce((m, t) => Math.max(m, t.id), 1) + 1);
 
   useEffect(() => {
@@ -39,10 +42,10 @@ function App() {
     }
   }, [tabs, activeId]);
 
-  const addTab = useCallback(() => {
+  const addTab = useCallback(({ seedQuestion } = {}) => {
     const id = nextIdRef.current;
     nextIdRef.current += 1;
-    setTabs((t) => [...t, { id, label: null }]);
+    setTabs((t) => [...t, { id, label: null, seedQuestion }]);
     setActiveId(id);
   }, []);
 
@@ -96,16 +99,27 @@ function App() {
         onClose={closeTab}
         onNew={addTab}
         onRename={renameTab}
+        view={view}
+        onViewChange={setView}
       />
-      {tabs.map((tab) => (
-        <div key={tab.id} className="tab-panel" hidden={tab.id !== activeId}>
-          <InvestigationWorkspace
-            storageKey={investigationKey(tab.id)}
-            onLabel={(label) => setLabel(tab.id, label)}
-            onNewInvestigation={addTab}
-          />
-        </div>
-      ))}
+      <div hidden={view !== 'review' ? false : true}>
+        {tabs.map((tab) => (
+          <div key={tab.id} className="tab-panel" hidden={tab.id !== activeId}>
+            <InvestigationWorkspace
+              storageKey={investigationKey(tab.id)}
+              onLabel={(label) => setLabel(tab.id, label)}
+              onNewInvestigation={addTab}
+            />
+          </div>
+        ))}
+      </div>
+      {view === 'review' && (
+        <ReviewView
+          selectedClaimId={reviewClaimId}
+          onSelectClaim={setReviewClaimId}
+          onOpenAsInvestigation={(question) => { addTab({ seedQuestion: question }); setView('investigate'); }}
+        />
+      )}
     </div>
   );
 }
