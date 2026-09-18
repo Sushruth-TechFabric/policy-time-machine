@@ -33,6 +33,16 @@ function App() {
   const [activeId, setActiveId] = useState(initial.activeId);
   const [view, setView] = useState('investigate');
   const [reviewClaimId, setReviewClaimId] = useState(null);
+  // The Run the last "Prepare a Brief" started. The POST returns before the
+  // harness thread has recorded the Run, so the claim detail still reports
+  // `active_run: null`; without this the Review view would show "No Brief
+  // yet" instead of the Run panel it just started.
+  const [reviewRunId, setReviewRunId] = useState(null);
+
+  const selectReviewClaim = useCallback((claimId) => {
+    setReviewRunId(null);
+    setReviewClaimId(claimId);
+  }, []);
   const nextIdRef = useRef(initial.tabs.reduce((m, t) => Math.max(m, t.id), 1) + 1);
 
   useEffect(() => {
@@ -112,8 +122,10 @@ function App() {
               onNewInvestigation={addTab}
               seedQuestion={tab.seedQuestion ?? null}
               onPrepareBrief={async (claimId) => {
-                try { await prepareBrief(claimId); } catch { /* the Review view shows the state either way */ }
+                let runId = null;
+                try { runId = (await prepareBrief(claimId))?.run_id ?? null; } catch { /* the Review view shows the state either way */ }
                 setReviewClaimId(claimId);
+                setReviewRunId(runId);
                 setView('review');
               }}
             />
@@ -123,7 +135,8 @@ function App() {
       {view === 'review' && (
         <ReviewView
           selectedClaimId={reviewClaimId}
-          onSelectClaim={setReviewClaimId}
+          initialRunId={reviewRunId}
+          onSelectClaim={selectReviewClaim}
           onOpenAsInvestigation={(question) => { addTab({ seedQuestion: question }); setView('investigate'); }}
         />
       )}

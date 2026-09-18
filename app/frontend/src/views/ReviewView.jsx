@@ -17,8 +17,14 @@ import './ReviewView.css';
  * `selectedClaimId` prop) rather than driven solely by the prop: the parent
  * may pass a no-op `onSelectClaim`, and a row click must still open the
  * Brief immediately.
+ *
+ * `initialRunId` is the Run a "Prepare a Brief" outside this view just
+ * started. The POST returns before the harness thread has recorded the Run,
+ * so the claim detail still reports no active Run; seeding from the prop is
+ * what makes the Run panel appear straight away. It is always cleared when
+ * the selected claim changes, so one claim's Run never narrates another's.
  */
-export default function ReviewView({ selectedClaimId, onSelectClaim, onOpenAsInvestigation }) {
+export default function ReviewView({ selectedClaimId, initialRunId = null, onSelectClaim, onOpenAsInvestigation }) {
   const [selected, setSelected] = useState(selectedClaimId ?? null);
   const [queue, setQueue] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -26,10 +32,14 @@ export default function ReviewView({ selectedClaimId, onSelectClaim, onOpenAsInv
   const [runId, setRunId] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => { setSelected(selectedClaimId ?? null); }, [selectedClaimId]);
+  useEffect(() => { setSelected(selectedClaimId ?? null); setRunId(null); }, [selectedClaimId]);
+  // Declared after the selection effect so a claim + Run arriving together
+  // seeds the Run rather than being cleared by the selection change.
+  useEffect(() => { if (initialRunId) setRunId(initialRunId); }, [initialRunId]);
 
   const handleSelect = useCallback((claimId) => {
     setSelected(claimId);
+    setRunId(null);
     onSelectClaim(claimId);
   }, [onSelectClaim]);
 
