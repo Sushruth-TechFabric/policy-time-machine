@@ -33,7 +33,9 @@ from .warehouse import WarehouseError, WarehousePermissionError
 async def _lifespan(app: FastAPI):
     """Runs the idempotent migration when Lakebase is configured; a
     failure here is logged, not fatal — the investigation surface must
-    keep working without the review record."""
+    keep working without the review record, so the store falls back to
+    its in-memory twin (review/context.py) rather than caching a dead
+    connection."""
     try:
         get_review_store()
     except Exception as exc:  # noqa: BLE001

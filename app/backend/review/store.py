@@ -11,6 +11,14 @@ from __future__ import annotations
 import json
 import threading
 from datetime import datetime, timezone
+from typing import Any, Callable
+
+try:  # psycopg is only needed by ReviewStore; the in-memory twin must import without it
+    import psycopg
+
+    _DROPPED_CONNECTION: tuple[type[BaseException], ...] = (psycopg.OperationalError,)
+except ImportError:  # pragma: no cover - the app, the Workflow tasks and CI all have psycopg
+    _DROPPED_CONNECTION = ()
 
 DISPOSITION_OUTCOMES = ("closer_look", "nothing_noteworthy", "more_information")
 MISSING = object()
@@ -137,24 +145,61 @@ class InMemoryReviewStore:
 
 class ReviewStore:
     """psycopg-backed. The connection is autocommit; multi-statement
-    transitions open an explicit transaction."""
+    transitions open an explicit transaction.
 
-    def __init__(self, conn) -> None:
+    Free Edition Lakebase scales the instance to zero and drops idle
+    connections, so a process-wide connection is routinely dead by the next
+    request. Callers that can re-dial (the app) pass a `reconnect` factory
+    and every statement retries once on a dropped connection; callers whose
+    process is short-lived (the Workflow tasks, the CI scripts) pass only
+    `conn` and see the original error.
+    """
+
+    def __init__(self, conn, reconnect: Callable[[], Any] | None = None) -> None:
         self._conn = conn
+        self._reconnect_factory = reconnect
         self._lock = threading.RLock()
 
+    def _reconnect(self) -> bool:
+        if self._reconnect_factory is None:
+            return False
+        try:
+            self._conn.close()
+        except Exception:  # noqa: BLE001 - the connection is already gone
+            pass
+        self._conn = self._reconnect_factory()
+        return True
+
+    def _run(self, work):
+        """One statement (or one transaction), re-dialled once if the
+        connection was dropped. A dropped connection never committed, so
+        replaying the whole transaction is safe."""
+        with self._lock:
+            if getattr(self._conn, "closed", False) and self._reconnect():
+                return work()
+            try:
+                return work()
+            except _DROPPED_CONNECTION:
+                if not self._reconnect():
+                    raise
+                return work()
+
     def _rows(self, sql: str, params: tuple = ()) -> list[dict]:
-        with self._lock, self._conn.cursor() as cur:
-            cur.execute(sql, params)
-            if cur.description is None:
-                return []
-            cols = [d.name for d in cur.description]
-            return [dict(zip(cols, r)) for r in cur.fetchall()]
+        def work():
+            with self._conn.cursor() as cur:
+                cur.execute(sql, params)
+                if cur.description is None:
+                    return []
+                cols = [d.name for d in cur.description]
+                return [dict(zip(cols, r)) for r in cur.fetchall()]
+        return self._run(work)
 
     def _exec(self, sql: str, params: tuple = ()) -> int:
-        with self._lock, self._conn.cursor() as cur:
-            cur.execute(sql, params)
-            return cur.rowcount
+        def work():
+            with self._conn.cursor() as cur:
+                cur.execute(sql, params)
+                return cur.rowcount
+        return self._run(work)
 
     def upsert_routed_claim(self, claim: dict, routed_by: str, routing_rule: str | None) -> None:
         self._exec(
@@ -186,22 +231,26 @@ class ReviewStore:
         )
 
     def complete_run(self, run_id, claim_id, brief: dict, anchor_date: str, trace_id: str | None) -> None:
-        with self._lock, self._conn.transaction(), self._conn.cursor() as cur:
-            cur.execute(
-                """INSERT INTO review.brief (claim_id, run_id, anchor_date, body) VALUES (%s, %s, %s, %s::jsonb)
-                   ON CONFLICT (claim_id) DO UPDATE SET run_id = EXCLUDED.run_id, anchor_date = EXCLUDED.anchor_date,
-                   built_at = now(), body = EXCLUDED.body""",
-                (claim_id, run_id, anchor_date, json.dumps(brief, default=str)),
-            )
-            cur.execute("UPDATE review.run SET status='completed', trace_id=%s, finished_at=now(), current_step='promoted' WHERE run_id=%s",
-                        (trace_id, run_id))
-            cur.execute("UPDATE review.routed_claim SET run_state='brief_ready', active_run_id=NULL, updated_at=now() WHERE claim_id=%s",
-                        (claim_id,))
+        def work():
+            with self._conn.transaction(), self._conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO review.brief (claim_id, run_id, anchor_date, body) VALUES (%s, %s, %s, %s::jsonb)
+                       ON CONFLICT (claim_id) DO UPDATE SET run_id = EXCLUDED.run_id, anchor_date = EXCLUDED.anchor_date,
+                       built_at = now(), body = EXCLUDED.body""",
+                    (claim_id, run_id, anchor_date, json.dumps(brief, default=str)),
+                )
+                cur.execute("UPDATE review.run SET status='completed', trace_id=%s, finished_at=now(), current_step='promoted' WHERE run_id=%s",
+                            (trace_id, run_id))
+                cur.execute("UPDATE review.routed_claim SET run_state='brief_ready', active_run_id=NULL, updated_at=now() WHERE claim_id=%s",
+                            (claim_id,))
+        self._run(work)
 
     def fail_run(self, run_id, claim_id, failure: str) -> None:
-        with self._lock, self._conn.transaction(), self._conn.cursor() as cur:
-            cur.execute("UPDATE review.run SET status='failed', failure=%s, finished_at=now() WHERE run_id=%s", (failure[:500], run_id))
-            cur.execute("UPDATE review.routed_claim SET run_state='queued', active_run_id=NULL, updated_at=now() WHERE claim_id=%s", (claim_id,))
+        def work():
+            with self._conn.transaction(), self._conn.cursor() as cur:
+                cur.execute("UPDATE review.run SET status='failed', failure=%s, finished_at=now() WHERE run_id=%s", (failure[:500], run_id))
+                cur.execute("UPDATE review.routed_claim SET run_state='queued', active_run_id=NULL, updated_at=now() WHERE claim_id=%s", (claim_id,))
+        self._run(work)
 
     def get_run(self, run_id: str) -> dict | None:
         rows = self._rows("SELECT * FROM review.run WHERE run_id = %s", (run_id,))

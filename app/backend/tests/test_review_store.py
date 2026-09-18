@@ -73,6 +73,88 @@ def test_investigation_conversation_map(store):
     assert store.get_conversation("inv-1") == "conv-9"
 
 
+class _FakeCursor:
+    description = None
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def execute(self, sql, params=None):
+        self._conn.executed.append(sql)
+
+    @property
+    def rowcount(self):
+        return 1
+
+
+class _FakeConn:
+    """Stands in for a Lakebase connection. `drop_once` makes the first
+    `cursor()` raise the error psycopg reports when the server went away."""
+
+    def __init__(self, drop_once=False):
+        self.executed = []
+        self.closed = False
+        self._drop_once = drop_once
+
+    def cursor(self):
+        if self._drop_once:
+            import psycopg
+            self._drop_once = False
+            raise psycopg.OperationalError("the connection is closed")
+        return _FakeCursor(self)
+
+    def close(self):
+        self.closed = True
+
+
+def test_a_dropped_connection_is_re_dialled_once_and_the_statement_retried():
+    dead, fresh = _FakeConn(drop_once=True), _FakeConn()
+    calls = []
+
+    def reconnect():
+        calls.append(1)
+        return fresh
+
+    store = ReviewStore(dead, reconnect=reconnect)
+    assert store.claim_run("C-1", "run-1") is True
+    assert len(calls) == 1
+    assert dead.executed == [] and len(fresh.executed) == 1
+    assert dead.closed is True
+
+
+def test_without_a_reconnect_factory_a_dropped_connection_still_raises():
+    import psycopg
+    store = ReviewStore(_FakeConn(drop_once=True))
+    with pytest.raises(psycopg.OperationalError):
+        store.claim_run("C-1", "run-1")
+
+
+def test_an_unreachable_lakebase_degrades_to_the_in_memory_record(monkeypatch, capsys):
+    from unittest.mock import MagicMock
+
+    import backend.deps as deps_module
+    import backend.review.context as context_module
+    import backend.review.lakebase as lakebase_module
+
+    monkeypatch.setattr(context_module, "lakebase_configured", lambda: True)
+    monkeypatch.setattr(deps_module, "_app_client", lambda: MagicMock())
+    def unreachable(client): raise RuntimeError("instance is suspended")
+    monkeypatch.setattr(lakebase_module, "connect_main", unreachable)
+
+    context_module.reset_review_store()
+    try:
+        assert isinstance(context_module.get_review_store(), InMemoryReviewStore)
+    finally:
+        context_module.reset_review_store()
+    assert "Lakebase unavailable" in capsys.readouterr().out
+
+
 def test_stale_in_progress_claim_can_be_reclaimed(store):
     from datetime import datetime, timezone, timedelta
     store.upsert_routed_claim(CLAIM, routed_by="rule", routing_rule="High-severity claim reported in the last 90 days.")
