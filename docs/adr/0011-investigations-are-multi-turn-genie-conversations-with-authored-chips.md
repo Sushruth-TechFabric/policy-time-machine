@@ -2,7 +2,7 @@
 
 Each investigation is a single Genie conversation — `start-conversation` once, then `create-message` per turn — so typed refinements like "now only the ones above $50,000" resolve against carried context. Suggested follow-ups come from a curated bank keyed to on-screen context, and the question chain renders as a clickable breadcrumb trail rather than a chat transcript.
 
-ADR-0007 removed bespoke result renderers, so continuing an investigation — not how results look — is what now separates this product from a SQL chatbot. Multi-turn is also the strongest Genie-specific capability on the platform; using Genie statelessly in a Genie competition would leave most of it on the table. Generating follow-ups with an LLM was rejected because a suggestion the semantic layer cannot answer is a dead end the product itself offered the user, in front of a judge.
+ADR-0007 removed bespoke result renderers, so continuing an investigation — not how results look — is what now separates this product from a SQL chatbot. Multi-turn is also the strongest Genie-specific capability on the platform; using Genie statelessly would leave most of it on the table. Generating follow-ups with an LLM was rejected because a suggestion the semantic layer cannot answer is a dead end the product itself offered the user.
 
 ## Consequences
 
@@ -12,5 +12,5 @@ ADR-0007 removed bespoke result renderers, so continuing an investigation — no
 - **Breadcrumbs restore a cached view; they never re-query and never grow the thread.** The Genie conversation is linear and cannot be rewound, so after backtracking a *typed* fragment resolves against the newest turn rather than the restored view. Accepted and documented for MVP: chips stay correct after backtracking because they are self-contained, and the demo script runs forward-only so the mismatch never appears on stage. Forking a conversation per breadcrumb is post-MVP.
 - **"New investigation" is always visible, and is auto-offered after any error, empty result or clarification loop.** Escaping a poisoned thread requires noticing it, so the escape appears exactly where poisoning happens.
 - **ADR-0007's policy-ID regex applies per message.** A mid-thread mention of another policy switches the timeline panel beside the conversation without disturbing the thread, and the timeline still never blocks on Genie.
-- **Every trail node carries its own generated SQL, row count and Genie description.** The breadcrumb doubles as the investigation's audit trail — three questions and the three queries that answered them — which is the judging story.
-- **The demo script must include one typed pronoun or fragment follow-up** resolving correctly in-thread. It is the single moment that proves multi-turn Genie context to a judge, and it is rehearsed against the seeded dataset like everything else.
+- **Every trail node carries its own generated SQL, row count and Genie description.** The breadcrumb doubles as the investigation's audit trail — three questions and the three queries that answered them — which is what makes an investigation reviewable after the fact.
+- **The demo script must include one typed pronoun or fragment follow-up** resolving correctly in-thread. It is the single moment that proves multi-turn Genie context to an audience, and it is rehearsed against the seeded dataset like everything else.

@@ -1,6 +1,6 @@
 # Specifications
 
-File numbers reflect the order they were written, not the order to read them in.
+File numbers reflect the order they were written, not the order to read them in. Number 07 is not in use.
 
 ## Reading order
 
@@ -25,17 +25,17 @@ File numbers reflect the order they were written, not the order to read them in.
 
 9. [`05-query-contracts.md`](./05-query-contracts.md) — the fifteen contracts
 10. [`08-test-strategy.md`](./08-test-strategy.md) — five layers, and what is deliberately not tested
-11. [`07-demo-specification.md`](./07-demo-specification.md) — beat by beat
-12. [`04-implementation-plan.md`](./04-implementation-plan.md) — sequencing, parallel tracks, cut order
-13. [`13-meetup-demo-specification.md`](./13-meetup-demo-specification.md) — the live meetup arc; product first, then four platform chapters
+11. [`04-implementation-plan.md`](./04-implementation-plan.md) — sequencing, parallel tracks, cut order
+12. [`13-meetup-demo-specification.md`](./13-meetup-demo-specification.md) — the live meetup arc; product first, then four platform chapters
 
 ## Also
 
+- [`../README.md`](../README.md) — the documentation map: architecture, development, deployment, operations and the roadmap.
 - [`../../CONTEXT.md`](../../CONTEXT.md) — the glossary. Read it before anything else; these documents use its vocabulary precisely.
 - [`../adr/`](../adr/) — nineteen decisions with their reasoning. The specifications state *what*; the ADRs record *why*, including the alternatives rejected and the two decisions later superseded.
 
 ## Open parameters
 
-- Submission deadline — converts `04` §6 into a schedule and fixes where the cut line falls
+- Release date — converts `04` §6 into a schedule and fixes where the cut line falls
 - Dataset volumes — currently an assumption in `01` §4
-- Target workspace, catalog and schema names
+- Production workspace, catalog and schema names — the development values are fixed in ADR-0016; see [`../deployment.md`](../deployment.md)

@@ -309,7 +309,7 @@ One list, governing Genie's answers, `pattern_name`, `top_reasons`, timeline `di
 
 The second list bans two distinct things — accusatory language about people, and causal language about the data. Both are product boundaries (ADR-0014).
 
-**Standing framing sentence**, used in the writeup, the demo and any explanatory copy:
+**Standing framing sentence**, used in the product documentation, the demo and any explanatory copy:
 
 > The dataset is synthetic. Investigation-worthy patterns are deliberately seeded at declared, documented effect sizes — the product demonstrates how historical patterns are surfaced and investigated, not that policy changes predict claims.
 

@@ -1,7 +1,7 @@
 """The expectations catalogue itself — spec 02 §8 and ADR-0013.
 
 "A rule recorded only in a document drifts; enforced, it is both a guardrail for
-the coding agent and a judging artifact." These tests check that the enforced set
+the coding agent and an audit artifact." These tests check that the enforced set
 is complete and that the two regex-driven expectations agree with the Python
 predicates ``transformations.py`` uses, since a rule enforced twice in ways that
 disagree is worse than a rule enforced once.

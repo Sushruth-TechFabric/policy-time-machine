@@ -13,11 +13,12 @@ artefacts (`ptm_bronze`) are deliberately excluded so the space never offers a
 correct path and a plausible-wrong path to the same answer.
 
 **Known boundary**: Genie is not hard-limited to attached tables — the real
-boundary is Unity Catalog entitlement. In this single-account demo workspace
-the demo identity can read bronze, so a user who *names* a bronze table could
+boundary is Unity Catalog entitlement. In the single-account development workspace
+the developer identity can read bronze, so a user who *names* a bronze table could
 pull it into a query. The scope instruction ("there is no source history table
-… do not assume one exists") covers the default path; entitlement hardening is
-out of scope for a competition demo.
+… do not assume one exists") covers the default path. In any shared environment the boundary is closed in
+Unity Catalog instead: analysts are granted `ptm_gold` only and hold nothing
+on `ptm_bronze` or `ptm_silver` (see `docs/deployment.md`).
 
 ## 2. Table and column metadata (strongly recommended)
 
@@ -92,7 +93,7 @@ each in a fresh conversation (matching benchmark semantics; QC-15 alone reuses
 a conversation to test multi-turn follow-up), asserting on returned values
 against ground truth computed from the planted generator manifest — never on
 Genie's SQL text. The suite is rerun after every curation change; the
-pre-submission gate requires 15/15 across three consecutive runs.
+release gate requires 15/15 across three consecutive runs.
 
 Native benchmarks can still be seeded by hand in the UI from the example
 question→SQL pairs if a workspace-visible benchmark score is wanted; the CI

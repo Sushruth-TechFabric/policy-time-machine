@@ -54,7 +54,7 @@ The fifteen contracts in `05-query-contracts.md`, run three times each, all thre
 
 1. Any change to Genie instructions, Unity Catalog comments, or curated table schemas
 2. After every dataset regeneration, against the fresh anchor
-3. As a pre-submission gate
+3. As a release gate
 
 **Reporting.** Zero of three is a deterministic break. One or two of three is instruction ambiguity — Genie choosing between readings — and carries equal severity, because a live demo cannot tolerate a coin flip. Generated SQL and Genie's descriptions are logged on failure as diagnostics, never asserted.
 
@@ -85,17 +85,16 @@ Not worth testing: layout, styling, chart rendering.
 
 ---
 
-## 7. Pre-submission gate
+## 7. Release gate
 
-In order:
+Run before every release to a shared environment. In order:
 
 1. Regenerate the dataset
 2. Generator validation passes
 3. Pipeline runs with all expectations green
 4. Chip execution passes
 5. Query contract suite passes three of three on all fifteen
-6. Demo rehearsed end to end against that exact dataset
-7. Recording made from that rehearsal
+6. Before a live demonstration: rehearsed end to end against that exact dataset (spec 13)
 
 ---
 
@@ -108,6 +107,6 @@ The agent adds its own thin layer, on the same principle as the four above: each
 - **The branch smoke test (`ci/review/smoke_branch.py`).** Live: create a Working Branch and endpoint, connect, `SELECT 1`, delete both. Fails fast if the Lakebase project is missing or the identity lacks CAN MANAGE.
 - **The Brief contract (`ci/review/run_brief_contract.py`).** Live: build a Brief for the demo policy's latest claim three times and assert it against the same gold tables the harness reads from, plus one run with an injected failure to confirm nothing partial is ever promoted. 3/3, like the Genie contracts.
 
-Run alongside the fifteen Genie contracts, before any recording.
+Run alongside the fifteen Genie contracts, before any release or live demonstration.
 
-Steps 1 and 6 must not be separated by another regeneration. The recording and the tested dataset have to be the same dataset.
+Steps 1 and 6 must not be separated by another regeneration. The demonstrated dataset and the tested dataset have to be the same dataset.

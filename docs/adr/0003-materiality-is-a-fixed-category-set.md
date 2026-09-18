@@ -2,7 +2,7 @@
 
 A change is material if it falls in one of five decision categories: coverage, deductible, vehicle, address, status. (Originally six — `property` was removed by ADR-0005, which scoped the product to personal auto.) Premium and agent changes appear on timelines but are never material. Renewal is a timeline event, not a change. There is no magnitude threshold and no change-lineage tracking.
 
-We chose this because the alternatives cost more than they return for a competition MVP. Tracking `change_origin`/`parent_change_id` is faithful to how policy administration actually works, but it moves correctness into the synthetic data generator, where a causation bug corrupts materiality silently. Promoting Endorsement to a grain reads beautifully on a timeline but forces every count column to re-decide which grain it means, reopening decisions settled in ADR-0002. Counting everything — including premium — would make "three material changes in 30 days" routinely mean one decision plus its echoes, which breaks the product's central claim.
+We chose this because the alternatives cost more than they return for a first release. Tracking `change_origin`/`parent_change_id` is faithful to how policy administration actually works, but it moves correctness into the synthetic data generator, where a causation bug corrupts materiality silently. Promoting Endorsement to a grain reads beautifully on a timeline but forces every count column to re-decide which grain it means, reopening decisions settled in ADR-0002. Counting everything — including premium — would make "three material changes in 30 days" routinely mean one decision plus its echoes, which breaks the product's central claim.
 
 ## Consequences
 

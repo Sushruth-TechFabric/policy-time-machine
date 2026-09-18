@@ -106,7 +106,7 @@ Each requirement carries its verification. A requirement with no way to check it
 *Verified by:* expectation E18; QC-13 negative assertion.
 
 **FR-30** The product MUST NOT assert that policy changes predict or cause claims. Findings are associational.
-*Verified by:* FR-29; disclosure sentence in the demo and writeup.
+*Verified by:* FR-29; disclosure sentence in the demo and the product documentation.
 
 **FR-31** The product MUST NOT characterise a policyholder. Policies are investigation candidates; people are not described.
 *Verified by:* FR-29.

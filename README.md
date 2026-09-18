@@ -1,34 +1,90 @@
 # Policy Time Machine
 
-An investigation tool for exploring how insurance policies changed over time and how those changes relate to claims, built on Databricks Genie over a curated temporal semantic layer. Start with [`docs/specs/README.md`](./docs/specs/README.md) for the reading order, [`CONTEXT.md`](./CONTEXT.md) for the vocabulary, and [`docs/adr/`](./docs/adr/) for why each decision was made.
+*Ask what changed, when it changed, and what happened next.*
 
-## Review agent
+Policy Time Machine is an investigation workbench for insurance policy history. A claims or operations professional asks a question in plain English, such as "show policies where coverage increased within 30 days before a claim", and gets the answer, the SQL evidence behind it, a policy timeline, and a next question to ask. It runs entirely on Databricks: Genie over a curated temporal semantic layer in Unity Catalog, served by a Databricks App.
 
-The Claim Review Brief agent (decisions: ADR-0017, ADR-0018, ADR-0019 in [`docs/adr/`](./docs/adr/)) runs each review on a disposable Lakebase Working Branch and reads and writes through the Databricks Model Serving endpoint named by `REVIEW_MODEL_ENDPOINT`. A few things a judge or a fresh workspace needs to know before deploying it:
+It is an investigation tool. It is not a fraud detector, a scoring engine, or an adjudication system, and that boundary is enforced in the pipeline rather than stated in a disclaimer (see the [product charter](./docs/specs/09-product-charter.md) §5).
 
-- **Free Edition allows one Lakebase project per account.** If a judge's account already has a project from a previous submission or trial, they must delete it before this bundle can deploy its own — there is no way to point the bundle at an existing project.
-- **`databricks bundle destroy` soft-deletes the Lakebase project for seven days**, and the project id cannot be reused during that window. Never destroy the bundle near a demo — a re-deploy in that window will fail on the id collision, not create a fresh project.
-- **`REVIEW_MODEL_ENDPOINT` must name an enabled, pay-per-token chat endpoint.** The design named `databricks-claude-*`; this Free Edition workspace exposes no Claude endpoints (checked 2026-09-17 with `databricks api get /api/2.0/serving-endpoints`), so the bundle default is `databricks-gpt-oss-120b`. The harness is model-agnostic (one JSON object per turn), so any listed chat endpoint works; a disabled or absent endpoint fails every Run rather than falling back silently.
-- **One-time grants:** the app's service principal needs `CAN_RUN` on the Genie space so the app can call Genie on the user's behalf; the bundle does not grant this (Genie space permissions aren't a bundle resource type), so run it once per workspace after the space exists:
+## What it does
 
-  ```bash
-  databricks api patch /api/2.0/permissions/genie/01f1a5808edd1859b78359723b7c5379 --json '{"access_control_list":[{"service_principal_name":"5ee081ba-a745-4666-8ad2-41d3cfc674db","permission_level":"CAN_RUN"}]}'
-  ```
+| Capability | What the user gets |
+|---|---|
+| **Individual policy history** | Every change and claim on one policy, on one dated spine, with changes from the same endorsement grouped as one decision |
+| **Change-before-claim** | Cohorts of policies where a material change preceded a claim, at any window the user names |
+| **Portfolio patterns** | Which kinds of change most often precede severe claims, always shown against a comparison group with sample sizes |
+| **Similar histories** | Policies whose behaviour resembles this one, ranked, with the reasons for each match |
+| **Claim review** | A queue of routed claims, an agent-assembled Brief of evidence for each, and a reviewer-recorded Disposition |
 
-### Running the agent's live checks
+Every Genie answer carries its generated SQL, row count and reading. Every investigation query runs as the signed-in user, so Unity Catalog grants are the single point of access control for policy data. Claim review Briefs are prepared under the app's own gold-only identity and shown only to people who hold those same grants.
 
-Two scripts verify the agent against a real workspace rather than fakes. Both need an authenticated `databricks` CLI profile and the bundle already deployed.
+## How it works
+
+```
+Source history ─▶ Lakeflow Declarative Pipeline ─▶ ptm_gold (6 curated tables) ─▶ Genie ─▶ App ─▶ User
+   (ptm_bronze)     bronze → silver → gold,            in Unity Catalog                     │
+                    20 enforced expectations                                                 ▼
+                                                        Claim Review Brief agent ─▶ Lakebase review record
+```
+
+The central design decision: temporal **relationships** are computed once in the pipeline as plain columns, and temporal **thresholds** stay with Genie as filter literals. "Within 30 days before a claim" becomes `days_to_next_claim_loss <= 30`. Genie never writes a lookahead join, which is the SQL text-to-SQL gets silently wrong ([ADR-0002](./docs/adr/0002-genie-sees-four-flat-tables-with-precomputed-relationships.md)).
+
+Read [`docs/architecture.md`](./docs/architecture.md) for the full picture.
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| [`app/`](./app) | The Databricks App: FastAPI backend (`backend/`), React frontend (`frontend/`), and the review agent (`backend/review/`) |
+| [`pipeline/`](./pipeline) | Lakeflow Declarative Pipeline: transformations, the expectations catalogue, Unity Catalog comments |
+| [`generator/`](./generator) | Seeded, anchor-parameterised reference dataset generator and its validation |
+| [`genie/`](./genie) | The Genie space as code: instructions, example SQL, trusted SQL functions |
+| [`workflow/`](./workflow) | Workflows tasks: generate, validate, load, route claims, build Briefs |
+| [`ci/`](./ci) | Live verification suites: Genie query contracts, chip execution, Brief contract, Lakebase branch smoke test |
+| [`docs/`](./docs) | Architecture, guides, specifications, decision records, diagrams |
+| [`databricks.yml`](./databricks.yml) | The Asset Bundle: app, pipeline, job, Lakebase resources, MLflow experiment |
+| [`CONTEXT.md`](./CONTEXT.md) | The glossary. Every document and every user-facing string uses this vocabulary |
+
+## Quick start
+
+Prerequisites: Python 3.12, Node 20 or later, and the Databricks CLI authenticated against a workspace with Unity Catalog, Genie, Databricks Apps and Lakebase enabled.
 
 ```bash
-# Branch lifecycle smoke test: create a Working Branch + endpoint, connect,
-# SELECT 1, delete both. Fails fast if the Lakebase project is missing or
-# the identity lacks CAN MANAGE.
-LAKEBASE_PROJECT_ID=policy-time-machine python -m ci.review.smoke_branch
+# Run every local test suite (no workspace needed)
+cd app && python -m venv .venv && .venv/bin/pip install -r requirements.txt -r ../generator/requirements.txt && cd ..
+app/.venv/bin/python -m pytest generator/tests
+(cd app && .venv/bin/python -m pytest backend/tests)
+(cd pipeline && python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt && .venv/bin/python -m pytest)
+(cd app/frontend && npm install && npm test)
 
-# Brief contract: build a Brief for the demo policy's latest claim three
-# times and assert it against the same gold tables the harness reads from,
-# plus one run with an injected failure to confirm nothing partial is ever
-# promoted. Expect 3/3, run alongside the fifteen Genie contracts
-# (ci/genie/run_contracts.py) before any recording.
-LAKEBASE_PROJECT_ID=policy-time-machine python -m ci.review.run_brief_contract
+# Build the frontend and deploy the bundle
+(cd app/frontend && npm run build)
+databricks bundle validate
+databricks bundle deploy
+databricks bundle run policy_time_machine_app            # roll the uploaded code out to the app
+databricks bundle run policy_time_machine_regeneration   # load data and build the gold tables
 ```
+
+[`docs/development.md`](./docs/development.md) covers local development in detail. [`docs/deployment.md`](./docs/deployment.md) covers environments, one-time grants and configuration.
+
+## Documentation
+
+| If you want to | Read |
+|---|---|
+| Understand the product and who it serves | [`docs/specs/09-product-charter.md`](./docs/specs/09-product-charter.md), then the [specs reading order](./docs/specs/README.md) |
+| Learn the vocabulary | [`CONTEXT.md`](./CONTEXT.md) |
+| Understand the system | [`docs/architecture.md`](./docs/architecture.md) |
+| Set up and develop locally | [`docs/development.md`](./docs/development.md) |
+| Deploy to a workspace | [`docs/deployment.md`](./docs/deployment.md) |
+| Operate and troubleshoot it | [`docs/operations.md`](./docs/operations.md) |
+| See what the first production release requires | [`docs/roadmap.md`](./docs/roadmap.md) |
+| Understand why a decision was made | [`docs/adr/`](./docs/adr) |
+| Contribute | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
+
+## Status
+
+All five capabilities are built and verified in the development workspace, against the seeded reference dataset. Onboarding a real policy administration source, and standing up staging and production environments, are the next milestones. [`docs/roadmap.md`](./docs/roadmap.md) tracks both.
+
+## Data disclosure
+
+The reference dataset is synthetic. It contains no real customers and no personal data. Investigation-worthy patterns are deliberately seeded at declared, documented effect sizes, so the product demonstrates how historical patterns are surfaced and investigated, not that policy changes predict claims ([ADR-0014](./docs/adr/0014-the-planted-signal-is-modest-heterogeneous-and-declared.md)).

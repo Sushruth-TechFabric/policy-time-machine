@@ -23,7 +23,7 @@ The differentiator is not natural-language SQL. It is that the temporal concepts
 The whole system, in one line (source: [`docs/diagrams/01-high-level.mmd`](../diagrams/01-high-level.mmd)):
 
 ```mermaid
-%% Diagram 1 — High-level architecture. Audience: judges; first slide of the writeup.
+%% Diagram 1 — High-level architecture. Audience: stakeholders; first slide of the product overview.
 %% Embedded in docs/specs/09-product-charter.md. Vocabulary per CONTEXT.md and 03-genie-knowledge.md §7.
 flowchart LR
     subgraph bundle["Databricks Asset Bundle — one deployable unit"]
@@ -97,7 +97,7 @@ Depth over breadth was deliberate (ADR-0005). A scalar policy-level coverage amo
 3. The timeline renders even when Genie fails.
 4. Comparison outputs always show both groups with sample sizes.
 5. No user-facing string outside the approved vocabulary survives the pipeline.
-6. A judge can deploy the Asset Bundle into their own workspace and reproduce the demo.
+6. An engineer can deploy the Asset Bundle into a fresh workspace and reproduce every capability.
 
 ## 9. The story
 

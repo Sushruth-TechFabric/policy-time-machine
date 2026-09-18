@@ -39,7 +39,7 @@ The signature visual, and the only component that earns custom design effort.
 ### Region 3 — Right panel: the result
 Table plus auto-chart, then the evidence drawer, then the chips.
 
-The **evidence drawer** is collapsed by default, showing a one-line summary — *"47 rows · view query"*. Expanded it shows the generated SQL, the row count and Genie's description. Collapsed it keeps the screen calm; expanded it is the judge moment.
+The **evidence drawer** is collapsed by default, showing a one-line summary — *"47 rows · view query"*. Expanded it shows the generated SQL, the row count and Genie's description. Collapsed it keeps the screen calm; expanded it is the proof moment.
 
 **Chips** sit beneath the result, three to five from the context bank, and carry the only call-to-action styling on the screen.
 
@@ -60,7 +60,7 @@ The two panels are the investigation loop drawn as geometry: ask on the right, h
 The same loop in sequence (source: [`docs/diagrams/03-investigation-loop.mmd`](../diagrams/03-investigation-loop.mmd)):
 
 ```mermaid
-%% Diagram 3 — The investigation loop. Audience: UX spec (06) — a technical architecture spec does not exist yet.
+%% Diagram 3 — The investigation loop. Audience: UX spec (06) and docs/architecture.md.
 %% Embedded in docs/specs/06-ux-specification.md.
 sequenceDiagram
     actor User
@@ -146,7 +146,7 @@ Written down so the work is never started.
 - No resizable or draggable panels.
 - No saved investigations, no export.
 - **No investigation notes.** A fourth region, a persistence question and a keyboard-shortcut system for a feature no demo beat uses. The breadcrumb trail already tells the investigation's story.
-- **Desktop only, single viewport.** No responsive work. Judges do not grade the phone breakpoint.
+- **Desktop only, single viewport.** No responsive work. Both personas work at a desk, so a phone breakpoint is not a requirement for this release.
 
 ---
 

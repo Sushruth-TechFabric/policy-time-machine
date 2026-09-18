@@ -37,13 +37,13 @@ sync:
     # Workspace files are visible to anyone with workspace access; only the
     # runtime set belongs there. Everything below is local tooling, docs, or
     # tests with no deployed resource referencing it.
-    - demo/**
     # docs/ is excluded piecewise so docs/diagrams/ (the architecture story,
     # source + rendered SVG) stays visible in the workspace.
     - docs/adr/**
     - docs/specs/**
     - docs/superpowers/**
-    - docs/genie-curation.md
+    - docs/*.md
+    - CONTRIBUTING.md
     - ci/**
     - genie/**
     - .github/**
@@ -193,7 +193,7 @@ resources:
         (ptm_bronze), and full-refreshes the DLT pipeline into ptm_silver and
         ptm_gold. Keeps the dataset inside the
         guaranteed-activity tail (anchor-120d, ADR-0006/spec 08 section 2)
-        for judging that happens with no deploy in between.
+        for environments that run with no deploy in between.
       environments:
         - environment_key: generator_env
           spec:
@@ -281,7 +281,7 @@ resources:
       schedule:
         # Daily is far inside the staleness budget: the guaranteed-activity
         # tail covers anchor-120d (spec 01 section 5.4 / spec 08 section 2),
-        # so a judge running the demo any day after a missed run still has
+        # so anyone using the app any day after a missed run still has
         # up to ~119 days of slack before the tail's outer bucket runs dry.
         quartz_cron_expression: "0 0 9 * * ?"
         timezone_id: UTC

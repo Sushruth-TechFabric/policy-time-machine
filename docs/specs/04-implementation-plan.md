@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Sequenced by dependency and effort. **Absolute dates are deliberately absent** — the submission deadline has not been supplied. Once it is, §6 converts this into a schedule and fixes the cut line.
+Sequenced by dependency and effort. **Absolute dates are deliberately absent** — the release date has not been fixed. Once it is, §6 converts this into a schedule and fixes the cut line.
 
 ---
 
@@ -46,7 +46,7 @@ Exit criteria: pipeline green with all expectations enforced, not merely defined
 ### P3 — Patterns and similarity
 `policy_pattern_match` plus the `policy_profile` flags, from a single rule evaluation pass. Then the feature vector, exact distance, and `policy_similarity` at K=20 with the documented tie-break. Expectations E13–E16.
 
-Exit criteria: scenario policies are each other's neighbours at the ranks the demo script expects.
+Exit criteria: scenario policies are each other's neighbours at the ranks the demonstration script (spec 13) expects.
 
 ### P4 — Genie space
 Unity Catalog comments authored and applied, instructions and the example SQL library loaded from `03-genie-knowledge.md`, rendered from the single authored source.
@@ -85,13 +85,13 @@ Three, all of which make claims into tested properties:
 - Every diagram in `docs/diagrams/*.mmd` renders with mermaid-cli, and its source appears verbatim in a spec document (`ci/render-diagrams.sh`, run by `.github/workflows/render-diagrams.yml`). A diagram that fails to render, or that drifts from its embedded copy, fails the build.
 
 ### P8 — Workflow, bundle, scheduling
-Generator → pipeline → patterns and similarity → freshness check, on a schedule sized to the staleness budget. Asset Bundle packages job, pipeline, Genie space and app as one deployable unit — load-bearing, since Databricks Apps has no public access and "reproduce it in your own workspace" is the primary judging path.
+Generator → pipeline → patterns and similarity → freshness check, on a schedule sized to the staleness budget. Asset Bundle packages job, pipeline, Genie space and app as one deployable unit — load-bearing, since Databricks Apps has no public access and deploying the bundle is how every new environment and every new team gets the product.
 
-What deploys, and how a judge reproduces it (source: [`docs/diagrams/04-deployment.mmd`](../diagrams/04-deployment.mmd)):
+What deploys, and how an engineer stands it up in another workspace (source: [`docs/diagrams/04-deployment.mmd`](../diagrams/04-deployment.mmd)):
 
 ```mermaid
-%% Diagram 4 — Deployment / system architecture. Audience: technical architecture spec (does not exist yet)
-%% + reproducibility section of the writeup. Embedded in docs/specs/04-implementation-plan.md §5 (P8).
+%% Diagram 4 — Deployment / system architecture. Audience: docs/architecture.md and docs/deployment.md
+%% + deployment section of the documentation. Embedded in docs/specs/04-implementation-plan.md §5 (P8).
 flowchart TB
     subgraph ws["Databricks Workspace — deployed via Asset Bundle"]
         subgraph apps["Databricks Apps (~2 vCPU / 6 GB)"]
@@ -106,7 +106,8 @@ flowchart TB
         generator["Synthetic Data Generator"]
         uc["Unity Catalog — medallion schemas<br/>ptm_bronze → ptm_silver → ptm_gold<br/>(gold = six curated tables; comments =<br/>authored semantic layer content)"]
     end
-    judge(["Judge / User"])
+    user(["User"])
+    eng(["Platform engineer"])
     bundle["Asset Bundle"]
 
     react <-->|"served by"| fastapi
@@ -114,14 +115,14 @@ flowchart TB
     fastapi -->|"deterministic timeline +<br/>similarity detail"| wh
     wfjob --> generator --> dlt --> uc
     genie --> uc
-    judge -->|"Apps URL (authenticated)"| apps
-    judge -.-> bundle -.->|"reproduce in own workspace"| ws
+    user -->|"Apps URL (authenticated)"| apps
+    eng -.-> bundle -.->|"deploy to a workspace"| ws
 
     style appsnote stroke-dasharray: 4 4
 ```
 
-### P9 — Demo
-Script written in relative language. Must include one typed pronoun or fragment follow-up resolving in-thread — the single moment that proves multi-turn Genie context. Forward-only chains, so the breadcrumb/thread divergence never appears on stage. Recorded, because a public URL may not exist.
+### P9 — Live demonstration
+Script in `13-meetup-demo-specification.md`, written in relative language. Must include one typed pronoun or fragment follow-up resolving in-thread — the single moment that proves multi-turn Genie context. Forward-only chains, so the breadcrumb/thread divergence never appears on stage.
 
 ---
 
@@ -155,15 +156,15 @@ Writable now from the ADRs; none blocks the build.
 |---|---|
 | Query contracts — the fourteen questions with expected shape and acceptance criteria | P4, P7 |
 | UX specification — screens, states, empty/loading/error | P6 |
-| Demo specification — beat-by-beat script | P9 |
+| Meetup demo specification — the live arc | P9 |
 | Test strategy — beyond the two CI checks | P7 |
-| Product charter, personas, journeys | nothing; narrative for the writeup |
+| Product charter, personas, journeys | nothing; narrative for stakeholders |
 
 ---
 
 ## 8. Open parameters
 
-- **Submission deadline.** Converts this into a schedule and fixes where the cut line falls.
+- **Release date.** Converts this into a schedule and fixes where the cut line falls.
 - **Dataset volumes.** Currently the assumption stated in `01-data-model-and-synthetic-data.md` §4.
 - ~~**Target workspace, catalog and schema names.**~~ Resolved: catalog `workspace`, medallion schemas `ptm_bronze` / `ptm_silver` / `ptm_gold` (ADR-0016).
 - **Warehouse size** — anything serverless will do at this data volume.

@@ -279,7 +279,7 @@ Feature vector and distance are specified in ADR-0010.
 
 ## 8. Expectations catalogue
 
-Every invariant is enforced at write time as a pipeline expectation (ADR-0013). A rule recorded only in a document drifts; enforced, it is both a guardrail for the coding agent and a judging artifact.
+Every invariant is enforced at write time as a pipeline expectation (ADR-0013). A rule recorded only in a document drifts; enforced, it is both a guardrail for the coding agent and an audit artifact.
 
 | # | Expectation | Table | ADR |
 |---|---|---|---|

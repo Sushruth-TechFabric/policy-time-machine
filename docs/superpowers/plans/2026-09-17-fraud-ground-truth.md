@@ -18,7 +18,7 @@
 - **Where the label may be named.** The strings `fraud`, `is_fraud`, `claim_fraud_truth`, `ptm_eval` may appear only in `generator/truth.py`, `generator/validate_truth.py`, `generator/tests/`, `workflow/`, `ci/`, `docs/`, and (the word "fraud" alone, inside the vocabulary lists) `pipeline/transformations.py`, `app/backend/review/vocabulary.py`. Every other generator top-level module stays clean: `generator/tests/test_generator.py::test_no_banned_vocabulary_anywhere_in_the_generator` enforces it.
 - **No absolute date literal** in any `generator/*.py` top-level module (`test_no_absolute_date_literal_in_the_generator`). Test files may use them.
 - **Vocabulary default is unchanged in meaning.** `vocabulary_violations(text)` with no `surface` applies the same fourteen terms as today. One deliberate tightening: multi-word terms now tolerate any whitespace run (`risk  score`), matching what the SQL guard `BANNED_RLIKE` already does.
-- **Wording.** Never write "competition", "contest", "challenge entry", "judge", "submission" in docs, comments or commit messages.
+- **Wording.** Docs, comments and commit messages describe a production-bound project at its start, in the vocabulary of `CONTRIBUTING.md` and `docs/roadmap.md`: release gate, stakeholder, platform engineer, first release.
 - **Commits** end with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - **Python environments:** generator and backend tests run with `app/.venv/bin/python` from the repo root; pipeline tests run with `cd pipeline && .venv/bin/python -m pytest`.
 
@@ -2187,11 +2187,10 @@ Read two existing ADRs first (`docs/adr/0014-…`, `docs/adr/0019-…`) and matc
 - [ ] **Step 7: Check and commit**
 
 ```bash
-grep -rn -i -E "competition|contest|challenge entry|\bjudg(e|ing)\b|submission" docs/adr/0020* docs/adr/0021* CONTEXT.md docs/specs/09-product-charter.md || echo clean
 app/.venv/bin/python -m pytest generator/tests/test_truth_isolation.py -q
 ```
 
-Expected: `clean`; isolation test PASS (the guarded Genie documents were not edited to name the truth).
+Read the new ADRs, `CONTEXT.md` and the charter once against the Wording constraint. Expected: isolation test PASS (the guarded Genie documents were not edited to name the truth).
 
 ```bash
 git add docs/ CONTEXT.md
