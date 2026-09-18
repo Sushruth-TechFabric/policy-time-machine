@@ -19,15 +19,16 @@ if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
 from backend.deps import get_client  # noqa: E402
-from backend.investigations import store  # noqa: E402
 from backend.main import app  # noqa: E402
+from backend.review.context import reset_review_store, set_review_store  # noqa: E402
+from backend.review.store import InMemoryReviewStore  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
-def _reset_investigation_store():
-    store._conversations.clear()
+def _fresh_review_store():
+    set_review_store(InMemoryReviewStore())
     yield
-    store._conversations.clear()
+    reset_review_store()
 
 
 @pytest.fixture
