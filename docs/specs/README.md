@@ -27,11 +27,12 @@ File numbers reflect the order they were written, not the order to read them in.
 10. [`08-test-strategy.md`](./08-test-strategy.md) — four layers, and what is deliberately not tested
 11. [`07-demo-specification.md`](./07-demo-specification.md) — beat by beat
 12. [`04-implementation-plan.md`](./04-implementation-plan.md) — sequencing, parallel tracks, cut order
+13. [`13-meetup-demo-specification.md`](./13-meetup-demo-specification.md) — the live meetup arc; product first, then four platform chapters
 
 ## Also
 
 - [`../../CONTEXT.md`](../../CONTEXT.md) — the glossary. Read it before anything else; these documents use its vocabulary precisely.
-- [`../adr/`](../adr/) — fifteen decisions with their reasoning. The specifications state *what*; the ADRs record *why*, including the alternatives rejected and the two decisions later superseded.
+- [`../adr/`](../adr/) — nineteen decisions with their reasoning. The specifications state *what*; the ADRs record *why*, including the alternatives rejected and the two decisions later superseded.
 
 ## Open parameters
 
