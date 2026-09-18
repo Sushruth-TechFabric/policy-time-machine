@@ -321,6 +321,9 @@ def test_no_banned_vocabulary_anywhere_in_the_generator():
     The boundary is enforced in code as well as in data: a comment that reaches
     for the wrong word is how the wrong word reaches a user template later.
     """
+    # ADR-0020: the label is named in exactly two modules. Everything else in the
+    # generator - including the note phrase pools - stays under this rule.
+    detector_modules = {"truth.py", "validate_truth.py"}
     banned = re.compile(
         r"\b(fraud\w*|suspicious|suspicion|red[ -]flags?|anomal\w+|risk scor\w+)\b",
         re.IGNORECASE,
@@ -329,6 +332,8 @@ def test_no_banned_vocabulary_anywhere_in_the_generator():
     # Top-level modules only: this file necessarily spells the banned words in
     # order to look for them.
     for path in sorted(SOURCE_DIR.glob("*.py")):
+        if path.name in detector_modules:
+            continue
         for number, line in enumerate(path.read_text().splitlines(), start=1):
             if banned.search(line):
                 offenders.append(f"{path.relative_to(SOURCE_DIR)}:{number}: {line.strip()}")
@@ -345,6 +350,7 @@ def test_cli_writes_every_table_and_validation_passes(tmp_path, anchors):
     assert exit_code == 0
     for table in TABLE_ORDER:
         assert (out / f"{table}.parquet").exists(), table
+    assert (out / "eval" / "claim_fraud_truth.parquet").exists()
 
     report, measurements = validation.run(out)
     failed = [check.name for check in report.checks if not check.passed]

@@ -1,11 +1,13 @@
 """The runtime vocabulary check mirrors pipeline expectation E18 for text
 the pipeline cannot see (model-generated sentences)."""
 
+import ast
 import importlib.util
 from pathlib import Path
 
 import pytest
 
+from backend.review import vocabulary
 from backend.review.vocabulary import BANNED_VOCABULARY, is_clean, violations
 
 
@@ -40,3 +42,37 @@ def test_banned_list_matches_pipeline_when_available():
     except (ImportError, ModuleNotFoundError) as exc:
         pytest.skip(f"pipeline module not importable here: {exc}")
     assert tuple(BANNED_VOCABULARY) == tuple(module.BANNED_VOCABULARY)
+    assert tuple(vocabulary.ACCUSATORY_TERMS) == tuple(module.ACCUSATORY_TERMS)
+    assert tuple(vocabulary.ALWAYS_BANNED) == tuple(module.ALWAYS_BANNED)
+    assert [p.pattern for p in vocabulary._PERSON_AS_SUBJECT] == [
+        p.pattern for p in module._PERSON_AS_SUBJECT
+    ]
+    assert [p.flags for p in vocabulary._PERSON_AS_SUBJECT] == [
+        p.flags for p in module._PERSON_AS_SUBJECT
+    ]
+
+
+def test_detector_surface_may_name_fraud_but_not_a_person():
+    assert violations("This claim has a 0.82 probability of fraud.", surface="detector") == []
+    assert violations("Likely fraud on this claim.", surface="detector") == []   # 'likely' is allowed here
+    assert "person as subject" in violations("The policyholder committed fraud.", surface="detector")
+    assert violations("It predicts fraud.", surface="detector") == ["predicts"]
+    assert violations("Adele Ashcroft's claim.", surface="detector",
+                      person_names=("Adele Ashcroft",)) == ["person name"]
+
+
+def test_detector_surface_still_rejects_another_policy_id():
+    assert violations("Same shape as P-20114.", own_policy_id="P-10155",
+                      surface="detector") == ["policy id P-20114"]
+
+
+def test_ci_copy_of_the_banned_list_matches():
+    """ci/genie/ground_truth.py imports the Databricks SDK, so read it with ast."""
+    path = Path(__file__).resolve().parents[3] / "ci" / "genie" / "ground_truth.py"
+    tree = ast.parse(path.read_text())
+    values = [
+        ast.literal_eval(node.value) for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(getattr(t, "id", None) == "BANNED_VOCABULARY" for t in node.targets)
+    ]
+    assert values and tuple(values[0]) == tuple(BANNED_VOCABULARY)

@@ -1,5 +1,5 @@
-%% Diagram 4 — Deployment / system architecture. Audience: technical architecture spec (does not exist yet)
-%% + reproducibility section of the writeup. Embedded in docs/specs/04-implementation-plan.md §5 (P8).
+%% Diagram 4 — Deployment / system architecture. Audience: docs/architecture.md and docs/deployment.md
+%% + deployment section of the documentation. Embedded in docs/specs/04-implementation-plan.md §5 (P8).
 flowchart TB
     subgraph ws["Databricks Workspace — deployed via Asset Bundle"]
         subgraph apps["Databricks Apps (~2 vCPU / 6 GB)"]
@@ -14,7 +14,8 @@ flowchart TB
         generator["Synthetic Data Generator"]
         uc["Unity Catalog — medallion schemas<br/>ptm_bronze → ptm_silver → ptm_gold<br/>(gold = six curated tables; comments =<br/>authored semantic layer content)"]
     end
-    judge(["Judge / User"])
+    user(["User"])
+    eng(["Platform engineer"])
     bundle["Asset Bundle"]
 
     react <-->|"served by"| fastapi
@@ -22,7 +23,7 @@ flowchart TB
     fastapi -->|"deterministic timeline +<br/>similarity detail"| wh
     wfjob --> generator --> dlt --> uc
     genie --> uc
-    judge -->|"Apps URL (authenticated)"| apps
-    judge -.-> bundle -.->|"reproduce in own workspace"| ws
+    user -->|"Apps URL (authenticated)"| apps
+    eng -.-> bundle -.->|"deploy to a workspace"| ws
 
     style appsnote stroke-dasharray: 4 4

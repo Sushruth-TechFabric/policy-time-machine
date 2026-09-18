@@ -26,6 +26,7 @@ DATE_COLUMNS = {
     "claim_payment": ("payment_date",),
     "scenario_assignment": (),
     "generation_manifest": ("anchor_date",),
+    "claim_note": (),
 }
 
 POLICY_COLUMNS = {"policy_id", "demo_policy_id"}
@@ -40,6 +41,7 @@ TABLE_ORDER = (
     "claim_payment",
     "scenario_assignment",
     "generation_manifest",
+    "claim_note",
 )
 
 

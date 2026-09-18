@@ -37,6 +37,15 @@ class InMemoryReviewStore:
         self.briefs: dict[str, dict] = {}
         self.dispositions: dict[str, dict] = {}
         self.investigations: dict[str, str | None] = {}
+        self._anchor_date: str | None = None
+
+    def record_anchor_date(self, anchor_date: str) -> None:
+        with self._lock:
+            self._anchor_date = anchor_date
+
+    def anchor_date(self) -> str | None:
+        with self._lock:
+            return self._anchor_date
 
     def upsert_routed_claim(self, claim: dict, routed_by: str, routing_rule: str | None) -> None:
         with self._lock:
@@ -208,6 +217,17 @@ class ReviewStore:
                 cur.execute(sql, params)
                 return cur.rowcount
         return self._run(work)
+
+    def record_anchor_date(self, anchor_date: str) -> None:
+        self._exec(
+            """INSERT INTO review.dataset (singleton, anchor_date) VALUES (true, %s)
+               ON CONFLICT (singleton) DO UPDATE SET anchor_date = EXCLUDED.anchor_date, recorded_at = now()""",
+            (anchor_date,),
+        )
+
+    def anchor_date(self) -> str | None:
+        rows = self._rows("SELECT anchor_date FROM review.dataset")
+        return str(rows[0]["anchor_date"]) if rows else None
 
     def upsert_routed_claim(self, claim: dict, routed_by: str, routing_rule: str | None) -> None:
         self._exec(

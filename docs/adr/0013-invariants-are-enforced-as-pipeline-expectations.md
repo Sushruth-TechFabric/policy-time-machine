@@ -2,7 +2,7 @@
 
 The curated tables are built by a Lakeflow Declarative Pipeline, orchestrated with Workflows, deployed as a Databricks Asset Bundle, governed in Unity Catalog. Every temporal invariant decided in these ADRs is expressed as a pipeline expectation that fails the build at write time.
 
-We chose the declarative pipeline primarily for the expectations. This project's correctness lives almost entirely in a set of subtle rules — signed deltas, NULL propagation, band partitions, denormalised columns that must agree with their sources — and a rule recorded only in a document will drift the first time an implementation detail changes. Enforced at write time, the same rules become a guardrail for the coding agent and a first-class judging artifact: our temporal semantics, verified rather than narrated.
+We chose the declarative pipeline primarily for the expectations. This project's correctness lives almost entirely in a set of subtle rules — signed deltas, NULL propagation, band partitions, denormalised columns that must agree with their sources — and a rule recorded only in a document will drift the first time an implementation detail changes. Enforced at write time, the same rules become a guardrail for the coding agent and a first-class audit artifact: our temporal semantics, verified rather than narrated.
 
 ## The expectations catalogue
 
@@ -27,6 +27,6 @@ The vocabulary expectation is worth noting: the product's no-fraud-labelling bou
 ## Consequences
 
 - **The scheduled regeneration Workflow implements ADR-0006's staleness budget** — generator job, then pipeline, then similarity and pattern computation, then a freshness check.
-- **The Asset Bundle packages job, pipeline, Genie space and app as one deployable unit.** This is the literal answer to "can a judge reproduce this," and it is load-bearing given that Databricks Apps has no public access.
+- **The Asset Bundle packages job, pipeline, Genie space and app as one deployable unit.** This is the literal answer to "can another team stand this up in its own workspace," and it is load-bearing given that Databricks Apps has no public access.
 - **Unity Catalog comments are authored semantic-layer content, not documentation.** Genie reads table and column comments as context, so they are versioned with the semantic layer spec and reviewed like the Genie instruction set — especially for the counterintuitive definitions: next claim means next by *report* date; `change_timing` is deliberately redundant with the sign of the loss delta; high-severity means severe or catastrophic.
 - **Comments and Genie instructions share a single authored source** and are rendered to both. They must never be able to disagree.

@@ -25,8 +25,6 @@ from ..config import CATALOG, SCHEMA
 from ..genie import GenieResult, ask_genie
 from ..warehouse import run_query
 
-_BRONZE = "ptm_bronze"
-
 
 class BudgetExceeded(RuntimeError):
     pass
@@ -68,8 +66,6 @@ WHERE policy_id = :policy_id AND rank <= :k
 ORDER BY rank
 """.strip()
 
-_ANCHOR_SQL = f"SELECT CAST(anchor_date AS STRING) AS anchor_date FROM {CATALOG}.{_BRONZE}.generation_manifest LIMIT 1"
-
 
 class WarehouseTools:
     def __init__(self, client: WorkspaceClient) -> None:
@@ -94,10 +90,6 @@ class WarehouseTools:
 
     def similar(self, policy_id: str, k: int = 5) -> ToolResult:
         return self._run(_SIMILAR_SQL, {"policy_id": policy_id, "k": str(k)})
-
-    def anchor_date(self) -> str:
-        rows = run_query(self._client, _ANCHOR_SQL)
-        return str(rows[0]["anchor_date"]) if rows else ""
 
 
 class GenieTool:

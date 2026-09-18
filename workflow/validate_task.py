@@ -9,8 +9,9 @@ Spec 08 section 2: generator validation runs after generation and before the
 pipeline, and answers "is the signal the one we declared?" — effect sizes
 within +/-15% relative, the category ranking exact, every severity band
 populated, scenario populations at their declared sizes, the guaranteed
-activity tail populated through anchor-120d, and identifier lexical
-reservation holding.
+activity tail populated through anchor-120d, identifier lexical reservation
+holding, and that the planted truth holds its declared rates, tells and
+separability band (ADR-0021).
 
 The non-zero exit code on failure is the gate: ``generator.validate.main``
 returns 1 when any check fails, this script propagates that via
@@ -44,11 +45,12 @@ if _BUNDLE_ROOT not in sys.path:
 from generator.validate import main as validate_main  # noqa: E402
 
 OUT_DIR = "/Volumes/workspace/ptm_bronze/raw"
+TRUTH_DIR = "/Volumes/workspace/ptm_eval/raw"
 
 
 def main() -> int:
     print(f"[validate] out={OUT_DIR} bundle-root={_BUNDLE_ROOT}")
-    return validate_main(["--out", OUT_DIR])
+    return validate_main(["--out", OUT_DIR, "--truth-out", TRUTH_DIR])
 
 
 if __name__ == "__main__":

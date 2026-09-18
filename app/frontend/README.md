@@ -1,16 +1,24 @@
-# React + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The React frontend of the Policy Time Machine Databricks App. Built with Vite, tested with Vitest, linted with Oxlint. The FastAPI backend in `../backend` serves the built output from `dist/`.
 
-Currently, two official plugins are available:
+```bash
+npm install
+npm run dev      # :5173, proxies /api to the backend on :8000
+VITE_MOCK=1 npm run dev   # no backend: canned, deterministic responses from src/api/mockData.js
+npm test         # vitest, jsdom
+npm run lint
+npm run build    # writes dist/, which is what the bundle uploads
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Layout under `src/`:
 
-## React Compiler
+| Path | Contents |
+|---|---|
+| `api/` | The backend client, and the mock fixtures behind `VITE_MOCK=1` |
+| `hooks/` | Investigation state, including tabs and the trail |
+| `components/` | The investigation workspace, evidence drawer, charts, timeline, and `review/` for the Brief panel, Run panel and Disposition form |
+| `views/` | The Review view |
+| `lib/` | Result-row normalisation and helpers |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+Design and interaction rules are in [`../../docs/specs/06-ux-specification.md`](../../docs/specs/06-ux-specification.md). See [`../../docs/development.md`](../../docs/development.md) for running the whole app locally.

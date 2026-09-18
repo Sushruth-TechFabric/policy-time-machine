@@ -2,10 +2,12 @@
 // (see app/frontend/README.md and docs/specs/06-ux-specification.md) with
 // canned, deterministic responses so the UI is demoable with no backend.
 //
-// The scripted questions below are lifted verbatim from
-// docs/specs/07-demo-specification.md so mock mode plays the same beats as
-// the real demo. All copy obeys the approved vocabulary in
-// docs/specs/03-genie-knowledge.md §7 — never fraud/suspicious/red flag/etc.
+// The question matchers below key on the contract phrasings in
+// docs/specs/05-query-contracts.md, plus a few looser variants, so mock mode
+// answers the same questions a live demonstration asks
+// (docs/specs/13-meetup-demo-specification.md). All copy obeys the approved
+// vocabulary in docs/specs/03-genie-knowledge.md §7 — never
+// fraud/suspicious/red flag/etc.
 
 import { detectPolicyIds, timelineIdFor } from '../lib/policyId.js';
 
@@ -431,8 +433,8 @@ const PATTERN_ROWS = [
 ];
 
 // ---------------------------------------------------------------------------
-// The mock Genie engine. Matches canned demo-script questions (see
-// docs/specs/07-demo-specification.md) first; falls back to a per-policy
+// The mock Genie engine. Matches the canned contract questions (see
+// docs/specs/05-query-contracts.md) first; falls back to a per-policy
 // echo when a single known id is present; otherwise reports an honest empty
 // result rather than fabricating something plausible-looking. `contains`
 // checks are case-insensitive substring matches on the raw question text.

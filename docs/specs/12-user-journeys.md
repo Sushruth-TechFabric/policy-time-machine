@@ -62,7 +62,7 @@ A chip offers **"Which policies match the coverage-raised-then-claimed pattern?"
 
 He clicks one. The timeline opens on the left; the cohort stays on the right. He is now in Journey 1 without having navigated anywhere.
 
-**What he is protected from:** the ordering he saw is a designed property of the dataset, validated on every regeneration, and disclosed in the writeup. He is not reading noise, and he is not reading a discovery either.
+**What he is protected from:** the ordering he saw is a designed property of the dataset, validated on every regeneration, and disclosed in the product documentation. He is not reading noise, and he is not reading a discovery either.
 
 ---
 

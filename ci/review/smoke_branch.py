@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Working Branch lifecycle smoke test: create branch + endpoint, connect,
 SELECT 1, delete. Fails fast with a clear message for the two failures a
-judge reproducing the bundle is most likely to hit — no Lakebase project,
+engineer deploying the bundle is most likely to hit — no Lakebase project,
 or an identity without CAN MANAGE on it.
 
 Usage: LAKEBASE_PROJECT_ID=policy-time-machine python -m ci.review.smoke_branch

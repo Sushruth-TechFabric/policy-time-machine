@@ -25,7 +25,6 @@ class FakeWarehouse:
         self._patterns = patterns or []
         self.calls = []
     def claim(self, claim_id): return dict(CLAIM_ROW)
-    def anchor_date(self): return "2026-09-17"
     def sequence(self, policy_id, loss_date):
         self.calls.append("sequence")
         rows = [{"event_date": "2026-05-01", "event_type": "policy_change", "is_material": "true"},
@@ -113,8 +112,22 @@ def make_deps(store=None, warehouse=None, genie=None, model=None, branches=None,
                    connect_branch=lambda wb: FakeBranchConn(), **kw)
 
 
-def _routed(store):
+def _routed(store, anchor_date="2026-09-17"):
     store.upsert_routed_claim({**CLAIM_ROW, "settled_amount": 24700.0}, routed_by="rule", routing_rule="r")
+    if anchor_date:
+        store.record_anchor_date(anchor_date)
+
+
+def test_the_anchor_comes_from_the_review_record_and_its_absence_fails_before_a_branch_is_forked():
+    store = InMemoryReviewStore(); _routed(store, anchor_date="2026-09-15")
+    outcome = run_brief("C-1", make_deps(store=store))
+    assert outcome.status == "completed" and outcome.brief["anchor_date"] == "2026-09-15"
+
+    store = InMemoryReviewStore(); _routed(store, anchor_date=None)
+    branches = FakeBranches()
+    outcome = run_brief("C-1", make_deps(store=store, branches=branches))
+    assert outcome.status == "failed" and "anchor date" in outcome.failure
+    assert branches.created == []
 
 
 def test_success_promotes_brief_in_fixed_order_and_deletes_branch():

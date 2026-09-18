@@ -22,8 +22,15 @@ WHERE c.severity_band IN ('severe', 'catastrophic')
 ORDER BY c.report_date DESC
 """.strip()
 
+ANCHOR_SQL = f"SELECT CAST(anchor_date AS STRING) AS anchor_date FROM {CATALOG}.ptm_bronze.generation_manifest LIMIT 1"
+
 
 def route_claims(client: WorkspaceClient, store) -> int:
+    # Recorded on every pass, routed rows or not: Runs stamp each Brief with
+    # it, and the app's identity cannot read the manifest itself.
+    anchor = run_query(client, ANCHOR_SQL)
+    if anchor:
+        store.record_anchor_date(str(anchor[0]["anchor_date"]))
     rows = run_query(client, ROUTING_SQL)
     for row in rows:
         store.upsert_routed_claim(

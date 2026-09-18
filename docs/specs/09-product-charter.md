@@ -23,7 +23,7 @@ The differentiator is not natural-language SQL. It is that the temporal concepts
 The whole system, in one line (source: [`docs/diagrams/01-high-level.mmd`](../diagrams/01-high-level.mmd)):
 
 ```mermaid
-%% Diagram 1 — High-level architecture. Audience: judges; first slide of the writeup.
+%% Diagram 1 — High-level architecture. Audience: stakeholders; first slide of the product overview.
 %% Embedded in docs/specs/09-product-charter.md. Vocabulary per CONTEXT.md and 03-genie-knowledge.md §7.
 flowchart LR
     subgraph bundle["Databricks Asset Bundle — one deployable unit"]
@@ -66,9 +66,11 @@ Four investigations, and no more.
 
 ## 5. What it is not
 
-Not a fraud detection engine. Not a fraud score. Not underwriting, pricing or adjudication. Not a general insurance dashboard, not a general SQL chatbot, not a policy administration system.
+Not underwriting, pricing or adjudication. Not a general insurance dashboard, not a general SQL chatbot, not a policy administration system.
 
-This boundary is enforced, not merely stated. A fixed vocabulary governs every user-facing string the system can produce — Genie's answers, pattern names, similarity explanations, timeline labels, interface copy — and it is checked as a data-quality expectation in the pipeline (`02-semantic-layer.md` E18). The product surfaces patterns and names the rule that fired. It never characterises a person.
+It investigates policy history and, on a fenced detector surface (ADR-0020), estimates the probability that a claim is fraudulent — always about a claim, always beside a probability, never about a person. The reviewer's Disposition is the only decision on record.
+
+This boundary is enforced, not merely stated. A fixed vocabulary governs every user-facing string the system can produce on the investigation surface — Genie's answers, pattern names, similarity explanations, timeline labels, interface copy — and it is checked as a data-quality expectation in the pipeline (`02-semantic-layer.md` E18). The product surfaces patterns and names the rule that fired. It never characterises a person.
 
 The second half of that boundary is about causation rather than accusation. The dataset is synthetic and its patterns are deliberately seeded, so the product may describe associations and must never imply prediction. The framing sentence is fixed and used everywhere:
 
@@ -86,7 +88,7 @@ Depth over breadth was deliberate (ADR-0005). A scalar policy-level coverage amo
 
 **Definitions instead of judgement.** Material change, high-severity, recent, similar, noteworthy — each has one deterministic definition, written down, enforced, and stated to Genie verbatim. Nothing important is left to improvisation.
 
-**Invariants enforced at write time.** Twenty pipeline expectations encode the subtle rules: signed deltas agreeing with their categorical, linkage columns nulling together, severity bands partitioning cleanly, no sentinel values anywhere. A rule that lives only in a document drifts (ADR-0013).
+**Invariants enforced at write time.** Twenty-three pipeline expectations encode the subtle rules: signed deltas agreeing with their categorical, linkage columns nulling together, severity bands partitioning cleanly, no sentinel values anywhere. A rule that lives only in a document drifts (ADR-0013).
 
 **Ground truth for a nondeterministic layer.** The synthetic scenarios double as a test oracle. We know which forty policies were built to match "coverage increased within 30 days before a claim," so the contract asserts on the result rather than on the SQL — robust to rephrasing, fatal to a wrong cohort (ADR-0015).
 
@@ -97,7 +99,7 @@ Depth over breadth was deliberate (ADR-0005). A scalar policy-level coverage amo
 3. The timeline renders even when Genie fails.
 4. Comparison outputs always show both groups with sample sizes.
 5. No user-facing string outside the approved vocabulary survives the pipeline.
-6. A judge can deploy the Asset Bundle into their own workspace and reproduce the demo.
+6. An engineer can deploy the Asset Bundle into a fresh workspace and reproduce every capability.
 
 ## 9. The story
 

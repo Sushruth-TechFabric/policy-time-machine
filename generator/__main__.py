@@ -13,6 +13,7 @@ import argparse
 import datetime as dt
 import sys
 
+from . import truth
 from .build import build
 from .emit import write
 
@@ -27,6 +28,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="UTC date the dataset is anchored to; defaults to the generation date",
     )
     parser.add_argument("--out", required=True, help="directory to write one parquet file per table")
+    parser.add_argument(
+        "--truth-out", default=None,
+        help="directory for the evaluation-only table; defaults to <out>/eval",
+    )
     return parser.parse_args(argv)
 
 
@@ -35,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     anchor = args.anchor_date or dt.datetime.now(dt.timezone.utc).date()
     frames = build(args.seed, anchor)
     paths = write(frames, args.out, anchor)
+    paths.append(truth.write(frames, args.truth_out or truth.default_dir(args.out)))
     print(f"seed={args.seed} anchor={anchor.isoformat()} out={args.out}")
     for path in paths:
         print(f"  {path.name:<32} {len(frames[path.stem]):>8,} rows")

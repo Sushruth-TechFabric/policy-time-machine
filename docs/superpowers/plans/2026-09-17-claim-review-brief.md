@@ -19,7 +19,7 @@
 - Runs are strictly sequential (Free Edition concurrent-compute limit on non-default branches).
 - Model provider is Databricks Model Serving (`databricks-claude-*` pay-per-token), never the Anthropic API directly; endpoint name is configuration `REVIEW_MODEL_ENDPOINT`.
 - `genie.py` never raises (module contract); every new module that talks to Databricks returns structured failures upward to the harness, which is the one place that decides "Run failed".
-- Competition-simple still applies: one process, threads not queues, no new services beyond the Lakebase project and the MLflow experiment.
+- Keep it simple: one process, threads not queues, no new services beyond the Lakebase project and the MLflow experiment.
 - Backend tests: `pytest app/backend/tests -v` from the repo root. Frontend tests: `cd app/frontend && npm test`. Pipeline tests unaffected.
 - Commit after every task with the trailer:
   ```
@@ -3918,7 +3918,7 @@ git commit -m "Timeline: Prepare a Brief; investigation tabs can be seeded from 
 #!/usr/bin/env python3
 """Working Branch lifecycle smoke test: create branch + endpoint, connect,
 SELECT 1, delete. Fails fast with a clear message for the two failures a
-judge reproducing the bundle is most likely to hit — no Lakebase project,
+engineer deploying the bundle is most likely to hit — no Lakebase project,
 or an identity without CAN MANAGE on it.
 
 Usage: LAKEBASE_PROJECT_ID=policy-time-machine python -m ci.review.smoke_branch
@@ -4141,14 +4141,14 @@ git commit -m "CI: Working Branch smoke test and the Brief contract (3/3 plus fo
 ```markdown
 # Meetup Demo Specification
 
-Live, 15–20 minutes, technical audience. Product first, then four platform chapters in data-flow order, two minutes for questions. The contest script (spec 07) is untouched; this is its own document.
+Live, 15–20 minutes, technical audience. Product first, then four platform chapters in data-flow order, two minutes for questions.
 
-Rules carried over from spec 07: relative language only; contract phrasings only (spec 05 for Genie, `ci/review/run_brief_contract.py` for the Brief); the evidence panel opens at least twice; never say fraud.
+Rules: relative language only; contract phrasings only (spec 05 for Genie, `ci/review/run_brief_contract.py` for the Brief); the evidence panel opens at least twice; never say fraud.
 
-Pre-flight (the day before): regenerate; run `ci/genie/run_contracts.py` (15/15 at 3/3), `ci/review/smoke_branch.py`, `ci/review/run_brief_contract.py` (3/3); set `REVIEW_DEMO_HOLD_SECONDS=20` on the app; ensure one Brief is already built for the demo policy's latest claim and one Routed Claim has none; record the four fallback clips; open the Lakebase branches page, the Workflow run page, the Genie space and a SQL editor in separate tabs; run the governance preflight from spec 07 rule 7.
+Pre-flight (the day before): regenerate; run `ci/genie/run_contracts.py` (15/15 at 3/3), `ci/review/smoke_branch.py`, `ci/review/run_brief_contract.py` (3/3); set `REVIEW_DEMO_HOLD_SECONDS=20` on the app; ensure one Brief is already built for the demo policy's latest claim and one Routed Claim has none; record the four fallback clips; open the Lakebase branches page, the Workflow run page, the Genie space and a SQL editor in separate tabs; run the governance preflight (consent prompt accepted, revoke and grant statements ready, the revoke rehearsed).
 
 ## Chapter 0 — The product (3 min)
-Beats 3, 4, 5 and 6 of spec 07, verbatim: cohort → timeline → multi-turn → similarity. End on the open timeline.
+Four beats: cohort → timeline → multi-turn → similarity. End on the open timeline.
 
 ## Chapter 1 — The lakehouse (4 min)
 Cut to the Workflow run page: generate → validate → load → refresh → route_claims → build_briefs. Open the pipeline graph; open one expectation (E18, the vocabulary rule) and say why a rule that lives only in a document drifts. Open `ptm_gold.policy_change_event` in Catalog Explorer and point at `next_claim_id`, `days_to_next_claim_loss`, `change_timing`: relationships are columns; thresholds stay with Genie.
@@ -4160,7 +4160,7 @@ Open the Genie space: the six tables, the instructions, the two trusted SQL func
 Back in the app, click **Prepare a Brief** on the timeline's claim card. The Review view opens with the Run panel: "Working Branch created: run-…". Cut to the Lakebase branches page — the branch is there with its parent and creation time. Back to the app as sections complete; say the line: *the harness decides what happens, the model decides what to ask.* Point at the question the model chose and the shape it had to fit. When the panel says "Working Branch deleted by the harness", cut back to the branches page: gone. Open the Brief: four sections, each with its sentence, rows and SQL; one withheld sentence if the run produced one — say why that is a feature. Record a Disposition. Open the MLflow trace from the run record. Then open the queue and point at the nightly rule-routed claims with Briefs already built.
 
 ## Chapter 4 — Governance (2 min)
-Spec 07 beat 9 as written (revoke USE SCHEMA), plus: switch to the Review view — the Brief panel is quiet too. Grant back. Line: Unity Catalog governs the source; the Brief mirrors its answer.
+The governance beat (revoke USE SCHEMA, refresh, every panel quiet), plus: switch to the Review view — the Brief panel is quiet too. Grant back. Line: Unity Catalog governs the source; the Brief mirrors its answer.
 
 ## Close (1 min) and questions (2 min)
 Name the services: Unity Catalog, Lakeflow declarative pipeline, Workflows, Genie, Databricks Apps, Lakebase with branching, Foundation Model API, MLflow tracing, Asset Bundles.
@@ -4186,7 +4186,7 @@ and edges `wf --> agent`, `agent --> lakebase`, `agent --> genie`, `lakebase -->
 
 - [ ] **Step 4: README reproducibility notes**
 
-Create or extend the project `README.md` with a "Review agent" section: Free Edition allows one Lakebase project per account, so a judge with an existing project must delete it first; bundle destroy soft-deletes the project for seven days and the id cannot be reused in that window, so never destroy near demo day; `REVIEW_MODEL_ENDPOINT` must name an enabled pay-per-token endpoint; the two CI scripts and how to run them.
+Create or extend the project `README.md` with a "Review agent" section: Free Edition allows one Lakebase project per account, so an account with an existing project must delete it first; bundle destroy soft-deletes the project for seven days and the id cannot be reused in that window, so never destroy near demo day; `REVIEW_MODEL_ENDPOINT` must name an enabled pay-per-token endpoint; the two CI scripts and how to run them.
 
 - [ ] **Step 5: Commit**
 
