@@ -150,7 +150,7 @@ A tell is recoverable from the text: `tells_in(note_text, coverage_line)` return
 Rules for the pools:
 
 - Pools are static constants in `generator/`, reviewed and committed. Generation makes no model call and is byte-stable for a seed.
-- Every phrase appears in notes of both classes, so a phrase lookup leaks nothing; only tell *rates* differ.
+- No phrase is exclusive to fraud notes: every phrase that occurs in a fraud note also occurs in a benign one, so a phrase lookup cannot identify fraud; only tell *rates* differ.
 - No phrase contains a banned term, a policy-id lookalike (`P-\d{5}`), or a customer name.
 - Notes use relative wording for time ("two days ago", "last night"), never absolute dates, so a changed anchor does not change a note (determinism obligation 3).
 
@@ -161,7 +161,7 @@ Rules for the pools:
 | `claim_id` | string PK | |
 | `policy_age_at_loss_days` | int | Loss Date minus policy inception |
 | `prior_claims_count` | int | claims on the policy with an earlier Report Date (context for the investigator; not a planted signal) |
-| `days_since_prior_claim` | int, nullable | Loss Date minus the previous claim's Loss Date |
+| `days_since_prior_claim` | int, nullable | Report Date minus the latest earlier Report Date on the policy; null for a policy's first claim |
 | `reinstated_within_30d_before_loss` | boolean | |
 | `vehicle_added_within_30d_before_loss` | boolean | a vehicle added after inception, 0–30 days before the Loss Date |
 | `note_text` | string | from `claim_note` |
@@ -186,11 +186,11 @@ New checks in `generator/validate.py`, run by the existing `validate_task`, so a
 |---|---|
 | Byte identity | For the test seed and anchor, the hash of every pre-existing source table equals the hash recorded before this change. |
 | Declared rates | Realised fraud count in S and in background equals `round(rate × claims)` exactly; zero in C. |
-| Tilts | The validator recomputes the background allocation from the declared parameters and the emitted tables, independently of the generator, and the realised fraud count in every stratum equals it; for each flag the fraud rate among flagged claims exceeds the rate among unflagged. |
+| Tilts | The validator recomputes the background allocation from the declared parameters and the emitted tables, independently of the generator, and the realised fraud count in every stratum is within one claim of the declared logistic expectation (largest-remainder rounding guarantees this); for each flag the fraud rate among flagged claims exceeds the rate among unflagged. |
 | Tells | Realised count of each tell, per class, equals `round(rate × applicable claims)`, measured from the note text by `tells_in`. |
 | Separability band | A fixed reference scorer — the sum of the declared log-odds of the tells present and the flags set — reaches an AUC inside a declared band, 0.78–0.92 over the whole book (simulated mean 0.85). Separable, not trivial. |
-| Rules-only baseline | Treating "any pattern match on the claim's policy" as the prediction, recall stays below a declared ceiling (off-pattern fraud guarantees misses) and precision below a declared ceiling (benign S and C5 guarantee over-referral). |
-| Leakage | Every phrase occurs in both classes; no note contains a banned term or a policy-id lookalike; `is_fraud` is independent of `claim_id` order (rank correlation within tolerance of zero). |
+| Rules-only proxy | The validator cannot run the pipeline's pattern rules, so it uses scenario membership as their proxy: a claim is "referred" if it is an S planted claim or sits on a C5 policy. Recall must be at most 0.70 (off-pattern fraud guarantees misses) and precision at most 0.45 (benign S and C5 guarantee over-referral). The true rules-only figure, from `policy_pattern_match`, is computed by sub-project B's bench. |
+| Leakage | No phrase is exclusive to fraud notes; no note contains a banned term or a policy-id lookalike; `is_fraud` is independent of `claim_id` order (absolute rank correlation below 0.10). |
 
 Because rates, strata and tells are allocated by exact count, these checks are equalities, not tolerances; only the separability band and the rank-correlation leakage check are ranges.
 
