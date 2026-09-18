@@ -188,7 +188,28 @@ def test_scratch_sql_budget_is_enforced_and_run_still_completes(monkeypatch):
     outcome = run_brief("C-1", make_deps(store=store, model=SqlHungryModel()))
     assert outcome.status == "completed"
     seq = store.get_claim("C-1")["brief"]["sections"]["sequence"]
-    assert seq["sentence"] is None and "budget" in seq["sentence_dropped_reason"]
+    assert seq["sentence"] is None and seq["sentence_dropped_reason"] == "scratch SQL budget"
+
+
+def test_unparseable_model_output_drops_the_sentence_with_a_closed_set_reason():
+    """The reason reaches the Brief panel verbatim, so it never carries the
+    model's own words — only one of SENTENCE_DROPPED_REASONS."""
+    store = InMemoryReviewStore(); _routed(store)
+
+    class ProseInsteadOfJsonModel(ScriptedModel):
+        def complete(self, system, user, *, max_tokens=800):
+            if 'section "similar"' in user:
+                return "Sure! These policies look rather suspicious to me."
+            return super().complete(system, user, max_tokens=max_tokens)
+
+    outcome = run_brief("C-1", make_deps(store=store, model=ProseInsteadOfJsonModel()))
+    assert outcome.status == "completed"
+    brief = store.get_claim("C-1")["brief"]
+    section = brief["sections"]["similar"]
+    assert section["sentence"] is None and section["sentence_dropped"] is True
+    assert section["sentence_dropped_reason"] == "model output"
+    assert section["sentence_dropped_reason"] in harness_module.SENTENCE_DROPPED_REASONS
+    assert "suspicious" not in json.dumps(brief)
 
 
 def test_second_caller_cannot_start_a_run_for_a_claim_in_progress():

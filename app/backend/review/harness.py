@@ -25,6 +25,11 @@ from .tools import BudgetExceeded, GenieTool, ScratchSql, WarehouseTools, stage
 from .vocabulary import violations
 
 SECTIONS = ("sequence", "relevant_changes", "frequency", "similar")
+# The only strings that may reach `sentence_dropped_reason`, which the Brief
+# panel shows to the reviewer. Anything variable — a model's prose, an
+# exception message — goes in the run_step payload's `detail` instead.
+SENTENCE_DROPPED_REASONS = ("vocabulary check", "model output", "scratch SQL budget",
+                            "no sentence returned", "sentence turns exhausted")
 TITLES = {"sequence": "The sequence", "relevant_changes": "The relevant changes",
           "frequency": "How common this is", "similar": "Similar histories"}
 MAX_GENIE_TURNS = 2
@@ -222,18 +227,18 @@ class _Run:
     def sentence(self, name: str, section: dict, scratch: ScratchSql) -> None:
         preview = _preview(section["rows"])
         history: list[dict] = []
-        sentence, reason, bad = None, None, None
+        sentence, reason, bad, detail = None, None, None, None
         for _ in range(MAX_SENTENCE_TURNS):
             try:
                 reply = self.model_json(sentence_prompt(name, preview, history, self.claim["policy_id"]), f"sentence_{name}")
             except ModelOutputError as exc:
-                reason = f"model output: {exc}"
+                reason, detail = "model output", str(exc)
                 break
             if isinstance(reply.get("sql"), str):
                 try:
                     out = scratch.run(reply["sql"])
                 except BudgetExceeded as exc:
-                    reason = f"scratch SQL budget: {exc}"
+                    reason, detail = "scratch SQL budget", str(exc)
                     break
                 history.append({"sql": reply["sql"], **out})
                 self.step(f"scratch_sql_{name}", tool="scratch_sql", sql=reply["sql"], row_count=out.get("row_count"))
@@ -255,8 +260,14 @@ class _Run:
             reason = "sentence turns exhausted"
         section["sentence"] = sentence
         section["sentence_dropped"] = sentence is None
+        # BriefPanel renders this verbatim, so it is one of
+        # SENTENCE_DROPPED_REASONS, never model prose or an exception
+        # message. The detail lives in the run_step payload, which dies with
+        # the Working Branch.
         section["sentence_dropped_reason"] = reason
         payload = {"dropped": sentence is None, "reason": reason}
+        if detail:
+            payload["detail"] = detail
         if bad:
             payload["violations"] = bad
         self.step(f"sentence_{name}", tool="model", payload=payload)
