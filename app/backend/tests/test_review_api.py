@@ -35,11 +35,22 @@ def test_prepare_brief_upserts_on_demand_and_starts_a_run(api, mock_client, monk
 
 def test_prepare_brief_reports_in_progress_without_starting_twice(api, monkeypatch):
     get_review_store().upsert_routed_claim(CLAIM, "rule", "r")
+    monkeypatch.setattr(api_module, "lookup_claim", lambda client, claim_id: {**CLAIM, "settled_amount": "24700"})
     monkeypatch.setattr(api_module.registry, "start", lambda claim_id, deps: None)
     monkeypatch.setattr(api_module.registry, "run_id_for", lambda claim_id: "run-live")
     monkeypatch.setattr(api_module, "build_deps", lambda client, store: object())
     monkeypatch.setattr(api_module, "_app_client", lambda: MagicMock())
     assert api.post("/api/review/claims/C-1/brief").json() == {"run_id": "run-live", "started": False, "reason": "in_progress"}
+
+
+def test_prepare_brief_denies_a_viewer_without_access_even_for_a_routed_claim(api, monkeypatch):
+    get_review_store().upsert_routed_claim(CLAIM, "rule", "r")
+    from backend.warehouse import WarehousePermissionError
+    def denied(client, claim_id): raise WarehousePermissionError("no")
+    monkeypatch.setattr(api_module, "lookup_claim", denied)
+    def must_not_start(claim_id, deps): raise AssertionError("must not start")
+    monkeypatch.setattr(api_module.registry, "start", must_not_start)
+    assert api.post("/api/review/claims/C-1/brief").json() == {"no_access": True}
 
 
 def test_prepare_brief_no_access_and_unknown_claim(api, monkeypatch):

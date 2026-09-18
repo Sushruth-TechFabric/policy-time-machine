@@ -52,15 +52,15 @@ def claim_detail(claim_id: str) -> dict:
 @router.post("/claims/{claim_id}/brief")
 def prepare_brief(claim_id: str, client: WorkspaceClient = Depends(get_client)) -> dict:
     store = get_review_store()
+    try:
+        claim = lookup_claim(client, claim_id)
+    except WarehousePermissionError:
+        return {"no_access": True}
+    except WarehouseError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    if claim is None:
+        raise HTTPException(status_code=404, detail=f"no claim {claim_id}")
     if store.get_claim(claim_id) is None:
-        try:
-            claim = lookup_claim(client, claim_id)
-        except WarehousePermissionError:
-            return {"no_access": True}
-        except WarehouseError as exc:
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
-        if claim is None:
-            raise HTTPException(status_code=404, detail=f"no claim {claim_id}")
         store.upsert_routed_claim({**claim, "settled_amount": float(claim["settled_amount"])}, routed_by="on_demand", routing_rule=None)
     run_id = registry.start(claim_id, build_deps(_app_client(), store))
     if run_id is None:
