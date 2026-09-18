@@ -1,3 +1,5 @@
+# Local/standalone twin of resources.apps.policy_time_machine_app.config in
+# databricks.yml (the bundle deploy uses that block; keep both in step).
 command: ['uvicorn', 'backend.main:app', '--host', '0.0.0.0', '--port', '$DATABRICKS_APP_PORT']
 
 env:
@@ -14,7 +16,7 @@ env:
   - name: APP_SERVICE_PRINCIPAL_ID
     value: "5ee081ba-a745-4666-8ad2-41d3cfc674db"
   - name: REVIEW_MODEL_ENDPOINT
-    value: "databricks-claude-sonnet-4-5"
+    value: "databricks-gpt-oss-120b"
   - name: REVIEW_MLFLOW_EXPERIMENT
     value: "/Shared/policy-time-machine-review"
   - name: REVIEW_DEMO_HOLD_SECONDS

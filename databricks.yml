@@ -6,8 +6,13 @@ variables:
     description: Application id of the policy-time-machine app's service principal (Apps UI > app > Authorization).
     default: "5ee081ba-a745-4666-8ad2-41d3cfc674db"
   review_model_endpoint:
-    description: Pay-per-token Claude endpoint enabled on this workspace's serving page.
-    default: "databricks-claude-sonnet-4-5"
+    description: >-
+      Pay-per-token chat endpoint enabled on this workspace's serving page. The
+      design named databricks-claude-*; this Free Edition workspace exposes no
+      Claude endpoints (checked 2026-09-17), so the default is the strongest
+      pay-per-token model that is present. The harness is model-agnostic (one
+      JSON object per turn).
+    default: "databricks-gpt-oss-120b"
 
 # Task zero: deploy-envelope smoke test only. Keep node_modules and
 # frontend source noise out of the upload — Databricks Apps enforces
@@ -66,6 +71,31 @@ resources:
             branch: ${resources.postgres_branches.ptm_production.name}
             database: ${resources.postgres_databases.ptm_review_db.name}
             permission: CAN_CONNECT_AND_CREATE
+      # Deploy-time app config. When `config` is set here it replaces
+      # app/app.yaml, which stays as the local/standalone twin; keep both in
+      # step. Interpolation is the reason it lives here: the dev target
+      # prefixes the experiment name and the model endpoint is a variable.
+      config:
+        command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "$DATABRICKS_APP_PORT"]
+        env:
+          - name: GENIE_SPACE_ID
+            value: "01f1a5808edd1859b78359723b7c5379"
+          - name: DATABRICKS_WAREHOUSE_ID
+            value: "e39eb96b7df5ab0f"
+          - name: PTM_CATALOG
+            value: "workspace"
+          - name: PTM_SCHEMA
+            value: "ptm_gold"
+          - name: LAKEBASE_PROJECT_ID
+            value: "policy-time-machine"
+          - name: APP_SERVICE_PRINCIPAL_ID
+            value: ${var.app_service_principal_id}
+          - name: REVIEW_MODEL_ENDPOINT
+            value: ${var.review_model_endpoint}
+          - name: REVIEW_MLFLOW_EXPERIMENT
+            value: ${resources.experiments.ptm_review_traces.name}
+          - name: REVIEW_DEMO_HOLD_SECONDS
+            value: "0"
 
   postgres_projects:
     ptm_review:
@@ -91,10 +121,22 @@ resources:
       autoscaling_limit_min_cu: 0.5
       autoscaling_limit_max_cu: 1
 
+  # The app service principal owns the review database. The deploying user
+  # created the project and therefore holds the Lakebase superuser role, so
+  # the Workflow's run-as identity needs no role of its own.
+  postgres_roles:
+    ptm_app_role:
+      parent: ${resources.postgres_branches.ptm_production.id}
+      role_id: app-service-principal
+      postgres_role: ${var.app_service_principal_id}
+      identity_type: SERVICE_PRINCIPAL
+      replace_existing: true
+
   postgres_databases:
     ptm_review_db:
       parent: ${resources.postgres_branches.ptm_production.id}
       database_id: review
+      role: ${resources.postgres_roles.ptm_app_role.name}
 
   experiments:
     ptm_review_traces:
@@ -214,7 +256,7 @@ resources:
               - "--REVIEW_MODEL_ENDPOINT"
               - "${var.review_model_endpoint}"
               - "--REVIEW_MLFLOW_EXPERIMENT"
-              - "/Shared/policy-time-machine-review"
+              - "${resources.experiments.ptm_review_traces.name}"
         - task_key: build_briefs
           depends_on:
             - task_key: route_claims
@@ -231,7 +273,7 @@ resources:
               - "--REVIEW_MODEL_ENDPOINT"
               - "${var.review_model_endpoint}"
               - "--REVIEW_MLFLOW_EXPERIMENT"
-              - "/Shared/policy-time-machine-review"
+              - "${resources.experiments.ptm_review_traces.name}"
       schedule:
         # Daily is far inside the staleness budget: the guaranteed-activity
         # tail covers anchor-120d (spec 01 section 5.4 / spec 08 section 2),
