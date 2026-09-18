@@ -186,27 +186,31 @@ class _Run:
         genie_turns, follow_up, final = 1, None, result
         self.step("genie_answered", tool="genie", sql=result.generated_sql, row_count=len(result.rows))
 
+        follow_up_status = None
         if genie_turns < MAX_GENIE_TURNS:
             try:
                 decision = self.model_json(follow_up_prompt(proposal, {"columns": [c["name"] for c in result.columns], "rows": result.rows[:PREVIEW_ROWS]}), "follow_up")
             except ModelOutputError:
                 decision = {"follow_up": None}
-            follow_up = decision.get("follow_up")
-            if isinstance(follow_up, str) and follow_up.strip() and not violations(follow_up):
+            proposed = decision.get("follow_up")
+            if isinstance(proposed, str) and proposed.strip() and not violations(proposed):
                 with self.deps.tracer.span("genie_follow_up", "tool"):
-                    _, second = self.deps.genie.ask(follow_up.strip(), conversation_id=conversation_id)
+                    _, second = self.deps.genie.ask(proposed.strip(), conversation_id=conversation_id)
                 genie_turns += 1
+                follow_up_status = second.status
+                self.step("genie_follow_up", tool="genie", sql=second.generated_sql, row_count=len(second.rows), payload={"status": second.status})
                 if second.status == "ok":
                     final = second
-                self.step("genie_follow_up", tool="genie", sql=second.generated_sql, row_count=len(second.rows), payload={"status": second.status})
-            else:
-                follow_up = None
+                    follow_up = proposed.strip()
+                # a non-ok second answer is discarded; follow_up stays None so the
+                # Brief never claims a narrowing question whose answer we dropped
 
         columns = [c["name"] for c in final.columns]
         stage(self.conn, "stage_frequency", [dict(zip(columns, row)) for row in final.rows])
         return {"title": TITLES["frequency"], "shape": situation.value, "question": proposal, "question_source": source,
-                "follow_up": follow_up, "columns": columns, "rows": final.rows, "sql": final.generated_sql,
-                "row_count": len(final.rows), "genie_status": final.status, "description": final.description}
+                "follow_up": follow_up, "follow_up_status": follow_up_status, "columns": columns, "rows": final.rows,
+                "sql": final.generated_sql, "row_count": len(final.rows), "genie_status": final.status,
+                "description": final.description}
 
     def similar(self) -> dict:
         with self.deps.tracer.span("similar", "tool"):
@@ -218,7 +222,7 @@ class _Run:
     def sentence(self, name: str, section: dict, scratch: ScratchSql) -> None:
         preview = _preview(section["rows"])
         history: list[dict] = []
-        sentence, reason = None, None
+        sentence, reason, bad = None, None, None
         for _ in range(MAX_SENTENCE_TURNS):
             try:
                 reply = self.model_json(sentence_prompt(name, preview, history, self.claim["policy_id"]), f"sentence_{name}")
@@ -240,7 +244,10 @@ class _Run:
                 break
             bad = violations(candidate, self.claim["policy_id"])
             if bad:
-                reason = f"vocabulary: {', '.join(bad)}"
+                # the Brief is user-facing: never echo the matched banned terms
+                # into it. The terms live only in the run_step payload below,
+                # which dies with the Working Branch.
+                reason = "vocabulary check"
             else:
                 sentence = candidate.strip()
             break
@@ -249,7 +256,10 @@ class _Run:
         section["sentence"] = sentence
         section["sentence_dropped"] = sentence is None
         section["sentence_dropped_reason"] = reason
-        self.step(f"sentence_{name}", tool="model", payload={"dropped": sentence is None, "reason": reason})
+        payload = {"dropped": sentence is None, "reason": reason}
+        if bad:
+            payload["violations"] = bad
+        self.step(f"sentence_{name}", tool="model", payload=payload)
 
     # -- the plan -----------------------------------------------------------
     def execute(self) -> dict:
@@ -276,7 +286,8 @@ class _Run:
         return {"claim_id": self.claim_id, "policy_id": self.claim["policy_id"], "coverage_line": self.claim.get("coverage_line"),
                 "loss_date": str(self.claim.get("loss_date")), "report_date": str(self.claim.get("report_date")),
                 "anchor_date": self.deps.warehouse.anchor_date(), "built_at": datetime.now(timezone.utc).isoformat(),
-                "run_id": self.run_id, "prompt_version": PROMPT_VERSION, "sections": sections}
+                "run_id": self.run_id, "prompt_version": PROMPT_VERSION, "section_order": list(SECTIONS),
+                "sections": sections}
 
     def teardown(self) -> None:
         if self.conn is not None:
@@ -295,12 +306,21 @@ class _Run:
 def run_brief(claim_id: str, deps: RunDeps, run_id: str | None = None) -> RunOutcome:
     run_id = run_id or uuid.uuid4().hex[:12]
     started = deps.clock()
-    if not deps.store.claim_run(claim_id, run_id):
+    try:
+        claimed = deps.store.claim_run(claim_id, run_id)
+    except Exception as exc:  # noqa: BLE001 - nothing was started yet; run_brief never raises
+        return RunOutcome(run_id, claim_id, "failed", f"could not claim the run: {exc}", None, None, deps.clock() - started)
+    if not claimed:
         return RunOutcome(run_id, claim_id, "skipped", "a Run is already in progress for this claim", None, None, 0.0)
-    deps.store.start_run(run_id, claim_id)
+    try:
+        deps.store.start_run(run_id, claim_id)
+    except Exception as exc:  # noqa: BLE001 - nothing to tear down yet
+        return RunOutcome(run_id, claim_id, "failed", f"could not start the run: {exc}", None, None, deps.clock() - started)
+
     run = _Run(claim_id, deps, run_id)
     brief: dict | None = None
     failure: str | None = None
+    promoted = False
     trace_id: str | None = None
     try:
         with deps.tracer.span(f"claim_review_brief:{claim_id}", "agent"):
@@ -310,17 +330,33 @@ def run_brief(claim_id: str, deps: RunDeps, run_id: str | None = None) -> RunOut
     except Exception as exc:  # noqa: BLE001 - any other failure is still "Run failed", never a crash
         failure = f"{type(exc).__name__}: {exc}"
     finally:
-        trace_id = deps.tracer.last_trace_id()
+        try:
+            trace_id = deps.tracer.last_trace_id()
+        except Exception:  # noqa: BLE001 - tracing must never block promotion or teardown
+            trace_id = None
         try:
             if brief is not None and failure is None:
                 deps.store.complete_run(run_id, claim_id, brief, anchor_date=brief["anchor_date"], trace_id=trace_id)
+                promoted = True
         except Exception as exc:  # noqa: BLE001 - promotion failing is a Run failure
             failure, brief = f"promotion failed: {exc}", None
         try:
             run.teardown()
-        except Exception as exc:  # noqa: BLE001 - branch cleanup failure must not mask the outcome; TTL is the backstop
-            failure = failure or f"branch cleanup failed: {exc}"
-        if failure is not None:
-            deps.store.fail_run(run_id, claim_id, failure)
+        except Exception as exc:  # noqa: BLE001 - cleanup failure must never un-promote an already-completed
+            # Run; the branch TTL is the backstop. Only record the best-effort
+            # step marker. If nothing was promoted yet, a cleanup failure is
+            # still a Run failure as before.
+            if promoted:
+                try:
+                    deps.store.update_run(run_id, current_step="branch_delete_failed")
+                except Exception:  # noqa: BLE001 - best-effort only
+                    pass
+            else:
+                failure = failure or f"branch cleanup failed: {exc}"
+        if failure is not None and not promoted:
+            try:
+                deps.store.fail_run(run_id, claim_id, failure)
+            except Exception:  # noqa: BLE001 - the failed outcome is already the worst case
+                pass
     status = "completed" if failure is None else "failed"
     return RunOutcome(run_id, claim_id, status, failure, brief if status == "completed" else None, trace_id, deps.clock() - started)

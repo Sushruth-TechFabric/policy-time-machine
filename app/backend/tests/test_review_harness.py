@@ -2,6 +2,7 @@
 vocabulary drop, promotion only on success, branch deletion on both paths."""
 
 import json
+from contextlib import nullcontext
 
 import pytest
 
@@ -125,6 +126,7 @@ def test_success_promotes_brief_in_fixed_order_and_deletes_branch():
     detail = store.get_claim("C-1")
     sections = detail["brief"]["sections"]
     assert list(sections) == ["sequence", "relevant_changes", "frequency", "similar"]
+    assert detail["brief"]["section_order"] == ["sequence", "relevant_changes", "frequency", "similar"]
     assert sections["sequence"]["material_change_count"] == 1
     assert sections["sequence"]["derived_change_count"] == 1
     assert sections["relevant_changes"]["situation"] == "relevant_before_loss"
@@ -142,7 +144,8 @@ def test_vocabulary_failure_drops_the_sentence_not_the_brief():
     section = store.get_claim("C-1")["brief"]["sections"]["similar"]
     assert outcome.status == "completed"
     assert section["sentence"] is None and section["sentence_dropped"] is True
-    assert "suspicious" in section["sentence_dropped_reason"]
+    assert section["sentence_dropped_reason"] == "vocabulary check"
+    assert "suspicious" not in json.dumps(store.get_claim("C-1")["brief"])
 
 
 def test_genie_error_fails_run_promotes_nothing_and_deletes_branch():
@@ -207,3 +210,89 @@ def test_demo_hold_sleeps_before_deleting_branch():
     slept = []
     run_brief("C-1", make_deps(store=store, demo_hold_seconds=20, sleep=slept.append))
     assert slept == [20]
+
+
+class RaisingDeleteBranches(FakeBranches):
+    def delete(self, wb):
+        raise RuntimeError("network blip deleting branch")
+
+
+def test_teardown_failure_after_promotion_does_not_unpromote_the_brief():
+    store = InMemoryReviewStore(); _routed(store)
+    branches = RaisingDeleteBranches()
+    outcome = run_brief("C-1", make_deps(store=store, branches=branches))
+    assert outcome.status == "completed"
+    assert store.get_claim("C-1")["brief"] is not None
+    assert store.get_run(outcome.run_id)["status"] == "completed"
+    assert store.get_run(outcome.run_id)["current_step"] == "branch_delete_failed"
+    assert store.get_claim("C-1")["run_state"] == "brief_ready"
+
+
+class RaisingTraceIdTracer:
+    def span(self, name, kind):
+        return nullcontext()
+    def last_trace_id(self):
+        raise RuntimeError("mlflow blew up")
+
+
+def test_last_trace_id_failure_does_not_block_promotion_or_teardown():
+    store = InMemoryReviewStore(); _routed(store)
+    branches = FakeBranches()
+    outcome = run_brief("C-1", make_deps(store=store, branches=branches, tracer=RaisingTraceIdTracer()))
+    assert outcome.status == "completed"
+    assert outcome.trace_id is None
+    assert branches.deleted == branches.created
+
+
+class FollowUpOnceModel(ScriptedModel):
+    """Like ScriptedModel, but always proposes one narrowing follow-up."""
+    def __init__(self, follow_up_question, **kw):
+        super().__init__(**kw)
+        self._follow_up_question = follow_up_question
+    def complete(self, system, user, *, max_tokens=800):
+        if "narrowing follow-up" in user:
+            self.calls.append(user)
+            return json.dumps({"follow_up": self._follow_up_question})
+        return super().complete(system, user, max_tokens=max_tokens)
+
+
+def test_follow_up_asks_a_second_genie_turn_in_the_same_conversation():
+    store = InMemoryReviewStore(); _routed(store)
+    follow_up_question = "Show both group sizes as well."
+    model = FollowUpOnceModel(follow_up_question)
+    genie = FakeGenie()
+    outcome = run_brief("C-1", make_deps(store=store, model=model, genie=genie))
+    assert outcome.status == "completed"
+    assert len(genie.questions) == 2
+    assert genie.questions[1] == (follow_up_question, "conv-1")
+    freq = store.get_claim("C-1")["brief"]["sections"]["frequency"]
+    assert freq["follow_up"] == follow_up_question
+    assert freq["follow_up_status"] == "ok"
+
+
+class SecondCallFailsGenie:
+    """First ask answers normally; every ask after that errors."""
+    def __init__(self):
+        self.questions = []
+        self._calls = 0
+    def ask(self, question, conversation_id=None):
+        self._calls += 1
+        self.questions.append((question, conversation_id))
+        if self._calls == 1:
+            return "conv-1", GenieResult(status="ok", columns=[{"name": "group"}, {"name": "rate"}, {"name": "n"}],
+                                         rows=[["with", "0.085", "400"], ["without", "0.058", "3600"]],
+                                         generated_sql="SELECT genie", description="d")
+        return conversation_id, GenieResult(status="error", error="second turn failed")
+
+
+def test_follow_up_answer_discarded_when_the_second_genie_turn_fails():
+    store = InMemoryReviewStore(); _routed(store)
+    model = FollowUpOnceModel("Show both group sizes as well.")
+    genie = SecondCallFailsGenie()
+    outcome = run_brief("C-1", make_deps(store=store, model=model, genie=genie))
+    assert outcome.status == "completed"
+    freq = store.get_claim("C-1")["brief"]["sections"]["frequency"]
+    assert freq["rows"] == [["with", "0.085", "400"], ["without", "0.058", "3600"]]
+    assert freq["genie_status"] == "ok"
+    assert freq["follow_up"] is None
+    assert freq["follow_up_status"] == "error"
