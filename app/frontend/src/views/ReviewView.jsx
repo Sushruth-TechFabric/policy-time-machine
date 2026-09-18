@@ -92,8 +92,8 @@ export default function ReviewView({ selectedClaimId, onSelectClaim, onOpenAsInv
               )}
               {(detail.brief || noAccess) && !runId && (
                 <>
-                  <BriefPanel brief={detail.brief} noAccess={noAccess} onOpenAsInvestigation={onOpenAsInvestigation} />
-                  {!noAccess && <DispositionForm claimId={detail.claim_id} disposition={detail.disposition}
+                  <BriefPanel key={detail.claim_id} brief={detail.brief} noAccess={noAccess} onOpenAsInvestigation={onOpenAsInvestigation} />
+                  {!noAccess && <DispositionForm key={detail.claim_id} claimId={detail.claim_id} disposition={detail.disposition}
                     onRecorded={(d) => { setDetail({ ...detail, disposition: d }); loadQueue(); }} />}
                 </>
               )}
