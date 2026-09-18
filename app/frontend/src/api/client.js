@@ -9,6 +9,11 @@ import {
   mockGetSimilar,
   mockGetPatterns,
   mockGetChips,
+  mockGetReviewQueue,
+  mockGetReviewClaim,
+  mockPrepareBrief,
+  mockGetRun,
+  mockRecordDisposition,
 } from './mockData.js';
 
 export const MOCK_MODE = import.meta.env.VITE_MOCK === '1';
@@ -85,4 +90,31 @@ export async function getChips(context, activePolicyId) {
   }
   const res = await fetch(`/api/chips?context=${encodeURIComponent(context)}`);
   return jsonOrThrow(res);
+}
+
+export async function getReviewQueue() {
+  if (MOCK_MODE) { await delay(60); return mockGetReviewQueue(); }
+  return jsonOrThrow(await fetch('/api/review/queue'));
+}
+
+export async function getReviewClaim(claimId) {
+  if (MOCK_MODE) { await delay(60); return mockGetReviewClaim(claimId); }
+  return jsonOrThrow(await fetch(`/api/review/claims/${encodeURIComponent(claimId)}`));
+}
+
+export async function prepareBrief(claimId) {
+  if (MOCK_MODE) { await delay(40); return mockPrepareBrief(claimId); }
+  return jsonOrThrow(await fetch(`/api/review/claims/${encodeURIComponent(claimId)}/brief`, { method: 'POST' }));
+}
+
+export async function getRun(runId) {
+  if (MOCK_MODE) { await delay(30); return mockGetRun(runId); }
+  return jsonOrThrow(await fetch(`/api/review/runs/${encodeURIComponent(runId)}`));
+}
+
+export async function recordDisposition(claimId, outcome, note) {
+  if (MOCK_MODE) { await delay(40); return mockRecordDisposition(claimId, outcome, note); }
+  return jsonOrThrow(await fetch(`/api/review/claims/${encodeURIComponent(claimId)}/disposition`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ outcome, note }),
+  }));
 }
