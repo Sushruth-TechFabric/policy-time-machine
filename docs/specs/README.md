@@ -24,7 +24,7 @@ File numbers reflect the order they were written, not the order to read them in.
 **Verify and ship**
 
 9. [`05-query-contracts.md`](./05-query-contracts.md) — the fifteen contracts
-10. [`08-test-strategy.md`](./08-test-strategy.md) — four layers, and what is deliberately not tested
+10. [`08-test-strategy.md`](./08-test-strategy.md) — five layers, and what is deliberately not tested
 11. [`07-demo-specification.md`](./07-demo-specification.md) — beat by beat
 12. [`04-implementation-plan.md`](./04-implementation-plan.md) — sequencing, parallel tracks, cut order
 13. [`13-meetup-demo-specification.md`](./13-meetup-demo-specification.md) — the live meetup arc; product first, then four platform chapters
