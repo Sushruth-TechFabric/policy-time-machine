@@ -9,3 +9,13 @@ env:
     value: "workspace"
   - name: PTM_SCHEMA
     value: "ptm_gold"
+  - name: LAKEBASE_PROJECT_ID
+    value: "policy-time-machine"
+  - name: APP_SERVICE_PRINCIPAL_ID
+    value: "5ee081ba-a745-4666-8ad2-41d3cfc674db"
+  - name: REVIEW_MODEL_ENDPOINT
+    value: "databricks-claude-sonnet-4-5"
+  - name: REVIEW_MLFLOW_EXPERIMENT
+    value: "/Shared/policy-time-machine-review"
+  - name: REVIEW_DEMO_HOLD_SECONDS
+    value: "0"

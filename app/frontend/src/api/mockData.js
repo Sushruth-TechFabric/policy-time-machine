@@ -119,7 +119,7 @@ const P_18492_TIMELINE = {
       display_label: '97% of the COLL limit at the time of loss',
       amount: 24700,
       is_material: false,
-      source_id: 'CLM-90142',
+      source_id: 'C-10000001',
     },
   ],
 };
@@ -161,7 +161,7 @@ const P_20114_TIMELINE = {
       display_label: 'Claim filed on the recently raised BI line',
       amount: 61200,
       is_material: false,
-      source_id: 'CLM-91887',
+      source_id: 'C-10000002',
     },
   ],
 };
@@ -202,7 +202,7 @@ const P_11907_TIMELINE = {
       display_label: 'Claim filed',
       amount: 8400,
       is_material: false,
-      source_id: 'CLM-88213',
+      source_id: 'C-10000003',
     },
   ],
 };
@@ -263,7 +263,7 @@ function generateSyntheticTimeline(policyId) {
         display_label: 'Claim filed',
         amount,
         is_material: false,
-        source_id: `CLM-${Math.floor(rng() * 90000 + 10000)}`,
+        source_id: `C-${Math.floor(rng() * 90000000 + 10000000)}`,
       },
     ],
   };
@@ -636,3 +636,123 @@ export function mockGetChips(context, activePolicyId) {
 }
 
 export { NOT_FOUND_ID };
+
+// ---- Review record (Claim Review Brief agent) ------------------------------
+// Exactly one Routing Rule exists in this fixture: both queue rows are
+// routed by the same nightly rule, mirroring the real routing story (one
+// rule can route many claims).
+const RULE = 'High-severity claim reported in the last 90 days.';
+
+function section(title, rows, sql, extra = {}) {
+  return { title, rows, sql, row_count: rows.length, sentence: null, sentence_dropped: false, ...extra };
+}
+
+const BRIEF_1 = {
+  claim_id: 'C-10000001', policy_id: 'P-18492', coverage_line: 'COLL', anchor_date: '2026-09-17',
+  built_at: '2026-09-17T08:00:00Z', run_id: 'run-mock1', trace_id: 'tr-mock1',
+  // The harness records the order it built the sections in (ADR-0018) and
+  // the panel renders that, not a hard-coded list.
+  section_order: ['sequence', 'relevant_changes', 'frequency', 'similar'],
+  sections: {
+    sequence: section('The sequence',
+      [{ event_date: '2026-05-12', event_type: 'policy_change', event_category: 'address', display_label: 'Address changed', is_material: true },
+       { event_date: '2026-05-12', event_type: 'policy_change', event_category: 'coverage', coverage_line: 'COLL', display_label: 'Collision limit raised', old_value: '100000', new_value: '300000', is_material: true },
+       { event_date: '2026-05-12', event_type: 'policy_change', event_category: 'premium', display_label: 'Premium recalculated', is_material: false },
+       { event_date: '2026-07-14', event_type: 'claim_filed', display_label: 'Collision claim filed', amount: 24700, is_material: false }],
+      'SELECT * FROM policy_timeline_event WHERE policy_id = :policy_id AND event_date <= :loss_date AND event_date >= date_sub(:loss_date, 365)',
+      { material_change_count: 2, derived_change_count: 1, sentence: 'Two material changes occurred in the year before the loss, both sixty-three days before it.' }),
+    relevant_changes: section('The relevant changes',
+      [{ change_event_id: 'E-1', change_category: 'coverage', coverage_line: 'COLL', change_timing: 'before_loss', days_to_next_claim_loss: 63, old_value_num: 100000, new_value_num: 300000 }],
+      'SELECT * FROM policy_change_event WHERE policy_id = :policy_id AND next_claim_id = :claim_id AND change_relates_to_claimed_coverage = true',
+      { patterns: [{ pattern_code: 'coverage_raised_then_claimed_same_line', pattern_name: 'Coverage raised, then a claim on the same line', matched_on_date: '2026-07-14' }],
+        situation: 'relevant_before_loss', sentence: 'One relevant change: the collision limit rose from 100,000 to 300,000 sixty-three days before the loss.' }),
+    frequency: section('How common this is',
+      [['within 90 days, high-severity claim followed', '0.085', '412'], ['increase not followed by high-severity claim', '0.058', '3610']],
+      'SELECT ... GROUP BY ...',
+      { shape: 'relevant_before_loss', question_source: 'model', follow_up: null, columns: ['group', 'rate', 'n'], genie_status: 'ok',
+        question: 'How often does a collision limit increase within 90 days before a claim precede a high-severity claim, compared with collision increases not followed by one?',
+        sentence: 'Increases followed by a high-severity claim within 90 days occur at 8.5% against 5.8% for increases not followed by one, with both groups sized.' }),
+    similar: section('Similar histories',
+      [{ similar_policy_id: 'P-20114', rank: 1, similarity_score: 0.91, top_reasons: 'comparable change velocity; coverage increase preceding a same-line claim' }],
+      'SELECT * FROM policy_similarity WHERE policy_id = :policy_id AND rank <= 5',
+      { sentence: null, sentence_dropped: true, sentence_dropped_reason: 'vocabulary check' }),
+  },
+};
+
+const REVIEW_QUEUE = [
+  { claim_id: 'C-10000001', policy_id: 'P-18492', coverage_line: 'COLL', loss_date: '2026-07-14', report_date: '2026-07-20', settled_amount: 24700, severity_band: 'severe',
+    routed_by: 'rule', routing_rule: RULE, run_state: 'brief_ready', active_run_id: null, has_brief: true, disposition: null },
+  { claim_id: 'C-10000002', policy_id: 'P-20114', coverage_line: 'COMP', loss_date: '2026-08-02', report_date: '2026-08-03', settled_amount: 61000, severity_band: 'catastrophic',
+    routed_by: 'rule', routing_rule: RULE, run_state: 'queued', active_run_id: null, has_brief: false, disposition: null },
+];
+const REVIEW_BRIEFS = { 'C-10000001': BRIEF_1 };
+const REVIEW_DISPOSITIONS = {};
+const RUN_STEPS = ['branch_created', 'sequence', 'relevant_changes', 'question_chosen', 'genie_answered', 'similar', 'sentence_similar', 'promoted', 'branch_deleted'];
+const RUNS = {};
+
+export function mockGetReviewQueue() {
+  return { queue: REVIEW_QUEUE.map((r) => ({ ...r, has_brief: Boolean(REVIEW_BRIEFS[r.claim_id]), disposition: REVIEW_DISPOSITIONS[r.claim_id] ?? null })) };
+}
+
+// The most recent Run for a claim, whatever its outcome — a failed Run
+// clears active_run_id, so this is what carries the failure to the view.
+function lastRun(claimId) {
+  const runs = Object.values(RUNS).filter((r) => r.claim_id === claimId);
+  return runs.length ? runs.reduce((a, b) => (a.started_at > b.started_at ? a : b)) : null;
+}
+
+export function mockGetReviewClaim(claimId) {
+  const row = REVIEW_QUEUE.find((r) => r.claim_id === claimId);
+  if (!row) throw new Error('Request failed (404)');
+  return { ...row, brief: REVIEW_BRIEFS[claimId] ?? null, brief_anchor_date: '2026-09-17', brief_built_at: '2026-09-17T08:00:00Z',
+           disposition: REVIEW_DISPOSITIONS[claimId] ?? null, active_run: row.active_run_id ? RUNS[row.active_run_id] : null,
+           last_run: lastRun(claimId) };
+}
+
+// Mirrors the real API: an unknown claim id is looked up and upserted as an
+// on-demand Routed Claim before the Run starts, so "Prepare a Brief" on a
+// timeline works for any claim on screen, not only the pre-routed two.
+// Gold claim ids; the real lookup finds no row for anything else and 404s.
+const CLAIM_ID_RE = /^C-\d{8}$/;
+
+function upsertOnDemand(claimId) {
+  if (!CLAIM_ID_RE.test(claimId)) return null;
+  for (const [policyId, authored] of Object.entries(AUTHORED_POLICIES)) {
+    const event = authored.timeline.events.find((e) => e.event_type === 'claim_filed' && e.source_id === claimId);
+    if (!event) continue;
+    const row = { claim_id: claimId, policy_id: policyId, coverage_line: event.coverage_line ?? 'COLL',
+                  loss_date: event.event_date, report_date: event.event_date, settled_amount: event.amount ?? 0,
+                  severity_band: 'severe', routed_by: 'on_demand', routing_rule: null,
+                  run_state: 'queued', active_run_id: null, has_brief: false, disposition: null };
+    REVIEW_QUEUE.push(row);
+    return row;
+  }
+  return null;
+}
+
+export function mockPrepareBrief(claimId) {
+  const row = REVIEW_QUEUE.find((r) => r.claim_id === claimId) ?? upsertOnDemand(claimId);
+  if (!row) throw new Error('Request failed (404)');
+  const runId = `run-${claimId}`;
+  RUNS[runId] = { run_id: runId, claim_id: claimId, status: 'running', current_step: null, step_count: 0, branch_name: `projects/policy-time-machine/branches/${runId}`, trace_id: null, failure: null, started_at: new Date().toISOString() };
+  row.run_state = 'in_progress'; row.active_run_id = runId;
+  let i = 0;
+  const tick = () => {
+    RUNS[runId].current_step = RUN_STEPS[i]; RUNS[runId].step_count = i + 1;
+    if (RUN_STEPS[i] === 'promoted') { REVIEW_BRIEFS[claimId] = { ...BRIEF_1, claim_id: claimId, policy_id: row.policy_id }; row.run_state = 'brief_ready'; }
+    if (RUN_STEPS[i] === 'branch_deleted') { RUNS[runId].status = 'completed'; row.active_run_id = null; return; }
+    i += 1; setTimeout(tick, 250);
+  };
+  setTimeout(tick, 100);
+  return { run_id: runId, started: true, reason: null };
+}
+
+export function mockGetRun(runId) {
+  if (!RUNS[runId]) throw new Error('Request failed (404)');
+  return { ...RUNS[runId] };
+}
+
+export function mockRecordDisposition(claimId, outcome, note) {
+  REVIEW_DISPOSITIONS[claimId] = { claim_id: claimId, outcome, note, recorded_by: 'you (mock)', recorded_at: new Date().toISOString() };
+  return { ...REVIEW_DISPOSITIONS[claimId] };
+}

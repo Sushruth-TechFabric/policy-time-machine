@@ -90,6 +90,32 @@ Within the last 90 days, unless the user states a window. Always measured from t
 **Comparison Group**:
 The policies a cohort is measured against — typically those without the characteristic being investigated. A rate is never reported without one.
 
+### Review
+
+**Routed Claim**:
+A Claim placed in front of a reviewer for a closer look, either because a Routing Rule matched it or because a user asked for one. A statement about the claim's circumstances, never about the policyholder.
+_Avoid_: flagged claim, suspicious claim, referral
+
+**Routing Rule**:
+A named, documented, deterministic rule that decides which Claims become Routed Claims. Currently one rule: a High-Severity Claim whose Report Date is Recent. Like a Noteworthy Pattern, it is always explainable as a rule and never as a score.
+_Avoid_: triage score, risk trigger
+
+**Brief**:
+The agent-assembled evidence pack for one Routed Claim: the sequence of Timeline Events before the Loss Date, the Relevant Changes and their Change Timing, how common the shape is against a Comparison Group, and the Similar Histories. Every section carries its evidence. A Brief is a record of what the dataset showed at the moment it was built, and it is never silently rebuilt. The Brief restates facts in the approved vocabulary and never weighs them; the weighing is the Disposition.
+_Avoid_: report, assessment, risk summary, recommendation
+
+**Disposition**:
+The reviewer's recorded outcome for a Routed Claim, chosen from a small fixed set, with an optional note, carrying who recorded it and when. Always a human's act; the agent never proposes one. Visible to the next reviewer who opens the queue.
+_Avoid_: verdict, decision (when the agent is the subject), score
+
+**Run**:
+One attempt by the agent to produce a Brief for one Routed Claim. A Run either completes, producing a Brief, or fails, producing nothing on the shared record beyond the fact that it failed. There is no partial Brief.
+_Avoid_: job, session, task (which collide with platform terms)
+
+**Working Branch**:
+The agent's private, disposable copy of the review database for the duration of one Run. Everything the agent stages or scratches lives there; deleting it is how a Run terminates, whether it completed or failed.
+_Avoid_: sandbox, scratch database, fork (in prose)
+
 ## Flagged ambiguities
 
 None outstanding.

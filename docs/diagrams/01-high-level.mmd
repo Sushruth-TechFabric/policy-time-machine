@@ -11,8 +11,14 @@ flowchart LR
         end
         genie["Databricks Genie<br/>interprets intent; writes flat<br/>filters + group-bys only"]
         app["Policy Time Machine app<br/>Databricks Apps: React + FastAPI"]
+        lakebase[("Lakebase — review record<br/>+ disposable Working Branch per Run")]
+        agent["Claim Review Brief agent<br/>harness owns the plan; model owns the question"]
     end
     user(["User"])
 
     wf --> gen --> dlt --> tables --> genie --> app --> user
     jobs -->|"policy_similarity<br/>policy_pattern_match"| tables
+    wf --> agent
+    agent --> lakebase
+    agent --> genie
+    lakebase --> app

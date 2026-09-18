@@ -26,3 +26,9 @@ def get_client(request: Request) -> WorkspaceClient:
     if not token:
         return _app_client()
     return WorkspaceClient(host=_app_client().config.host, token=token, auth_type="pat")
+
+
+def viewer_identity(request: Request) -> str | None:
+    """Who the viewer is, from the headers Databricks Apps forwards; None
+    locally. Used only for attribution on a Disposition (ADR-0019)."""
+    return request.headers.get("x-forwarded-email") or request.headers.get("x-forwarded-preferred-username") or None

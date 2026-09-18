@@ -3,7 +3,7 @@ import './AppHeader.css';
 
 /** The brand line and the investigation tab strip — rendered once, above
  *  whichever workspace is active. */
-export default function AppHeader({ tabs, activeId, onSelect, onClose, onNew, onRename }) {
+export default function AppHeader({ tabs, activeId, onSelect, onClose, onNew, onRename, view, onViewChange }) {
   return (
     <div className="app-header">
       <div className="brand-row">
@@ -15,8 +15,14 @@ export default function AppHeader({ tabs, activeId, onSelect, onClose, onNew, on
           <span className="brand-name">Policy Time Machine</span>
           <span className="brand-sub">Investigate policy changes, claims & patterns</span>
         </div>
+        <div className="view-toggle" role="group" aria-label="View">
+          <button type="button" className="view-btn" aria-pressed={view === 'investigate'} onClick={() => onViewChange('investigate')}>Investigate</button>
+          <button type="button" className="view-btn" aria-pressed={view === 'review'} onClick={() => onViewChange('review')}>Review</button>
+        </div>
       </div>
-      <TabBar tabs={tabs} activeId={activeId} onSelect={onSelect} onClose={onClose} onNew={onNew} onRename={onRename} />
+      {view === 'investigate' && (
+        <TabBar tabs={tabs} activeId={activeId} onSelect={onSelect} onClose={onClose} onNew={onNew} onRename={onRename} />
+      )}
     </div>
   );
 }

@@ -1,0 +1,44 @@
+.queue-list { list-style: none; margin: 0; padding: 0; }
+.queue-row { width: 100%; text-align: left; background: transparent; border: 0; border-bottom: 1px solid var(--line); padding: 12px var(--space-2); cursor: pointer; font: inherit; color: inherit; }
+.queue-row--active { background: var(--agent-soft); box-shadow: inset 3px 0 0 var(--agent); }
+.queue-row-head { display: flex; gap: 8px; align-items: baseline; }
+.queue-claim { font-family: var(--font-mono); font-weight: 600; }
+.queue-policy { color: var(--ink-600); font-family: var(--font-mono); font-size: 12px; }
+.queue-amount { margin-left: auto; color: var(--claim); font-weight: 600; }
+.queue-row-meta, .queue-row-rule, .queue-row-state { font-size: 12px; color: var(--ink-600); margin-top: 4px; display: flex; gap: 8px; align-items: center; }
+.queue-row-state { color: var(--agent-strong); font-weight: var(--w-medium); }
+.queue-empty { padding: var(--space-2); color: var(--ink-600); font-size: 13px; }
+.run-panel { background: var(--panel); border: 1px solid var(--agent-rail); border-radius: var(--radius-lg); padding: var(--space-2); margin-bottom: var(--space-2); }
+.run-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.run-title { font-family: var(--font-display); font-weight: 600; color: var(--agent-strong); }
+.run-branch, .run-trace { font-family: var(--font-mono); font-size: 12px; color: var(--ink-600); }
+.run-failure { color: var(--claim); font-size: 13px; margin-top: 8px; }
+.brief-panel { display: flex; flex-direction: column; gap: var(--space-2); }
+.brief-head { display: flex; justify-content: space-between; align-items: baseline; }
+.brief-title { font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.brief-meta { font-size: 12px; color: var(--ink-300); }
+.brief-section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-2); box-shadow: var(--shadow-1); }
+.brief-section-head { display: flex; justify-content: space-between; align-items: baseline; }
+.brief-section-title { margin: 0; font-family: var(--font-display); font-size: 15px; }
+.brief-open { background: transparent; border: 1px solid var(--agent-rail); color: var(--agent); border-radius: var(--radius-pill); padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.brief-question { background: var(--agent-soft); border-radius: var(--radius); padding: 8px 12px; margin: 8px 0; }
+.brief-question-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--agent-strong); }
+.brief-question p { margin: 4px 0 0; }
+.brief-follow-up { color: var(--ink-600); font-size: 13px; }
+.brief-sentence { font-size: 15px; margin: 8px 0; }
+.brief-sentence--withheld { color: var(--ink-300); font-style: italic; }
+.brief-patterns { margin: 4px 0; padding-left: 18px; font-size: 13px; }
+.brief-table-wrap { overflow-x: auto; max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.brief-table { border-collapse: collapse; font-size: 12.5px; width: 100%; }
+.brief-table th, .brief-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.brief-table th { position: sticky; top: 0; background: var(--paper); font-weight: var(--w-medium); }
+.brief-empty { color: var(--ink-300); font-size: 13px; }
+.brief-no-access { padding: var(--space-3); color: var(--ink-600); background: var(--panel); border-radius: var(--radius-lg); }
+.disposition { margin-top: var(--space-2); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-2); }
+.disposition-title { font-family: var(--font-display); font-weight: 600; margin-bottom: 8px; }
+.disposition-options { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.disposition-option { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+.disposition-note { width: 100%; min-height: 64px; margin: 8px 0; font: inherit; border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px; }
+.disposition-actions { display: flex; gap: var(--space-2); align-items: center; }
+.disposition-recorded { font-size: 12px; color: var(--ink-600); }
+.run-retry { margin-top: 12px; }
