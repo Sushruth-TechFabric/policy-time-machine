@@ -78,6 +78,9 @@ export default function ReviewView({ selectedClaimId, initialRunId = null, onSel
   }
 
   const noAccess = Boolean(timeline?.noAccess);
+  // A failed Run clears active_run_id and requeues the claim, so without
+  // last_run the failure would be invisible once the panel unmounts.
+  const lastRunFailed = !runId && !detail?.brief && detail?.last_run?.status === 'failed';
   return (
     <div className="review-view">
       <aside className="review-queue">
@@ -93,9 +96,10 @@ export default function ReviewView({ selectedClaimId, initialRunId = null, onSel
               <Timeline policyId={detail.policy_id} data={timeline} onFindSimilar={() => {}} findSimilarBusy />
             </div>
             <div className="review-brief-region">
-              {runId && <RunPanel runId={runId} onFinished={onFinished} />}
+              {runId && <RunPanel runId={runId} onFinished={onFinished} onRetry={startRun} />}
               {!runId && !detail.brief && !noAccess && (
                 <div className="review-no-brief">
+                  {lastRunFailed && <p className="review-last-failure">The last Run failed: {detail.last_run.failure}</p>}
                   <p>No Brief yet for {detail.claim_id}.</p>
                   <button type="button" className="ask-submit" onClick={startRun}>Prepare a Brief</button>
                 </div>

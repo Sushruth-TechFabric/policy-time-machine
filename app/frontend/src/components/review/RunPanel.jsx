@@ -16,33 +16,63 @@ const STEP_COPY = [
   ['branch_deleted', 'Working Branch deleted by the harness'],
 ];
 
+// Consecutive failed polls (2s apart) before the panel stops asking.
+const MAX_POLL_MISSES = 15;
+
 function stepIndex(step) {
   if (!step) return -1;
   return STEP_COPY.findIndex(([key]) => step.startsWith(key));
 }
 
 /** Polls one Run and narrates the harness's fixed plan. The model never
- *  appears as the actor of a lifecycle step — the harness does. */
-export default function RunPanel({ runId, onFinished }) {
+ *  appears as the actor of a lifecycle step — the harness does.
+ *
+ *  A completed Run hands back to the view, which reloads the detail and
+ *  renders the Brief. A failed one stays on screen with its failure and a
+ *  retry, because nothing downstream would otherwise show it. */
+export default function RunPanel({ runId, onFinished, onRetry }) {
   const [run, setRun] = useState(null);
+  const [lost, setLost] = useState(false);
 
   useEffect(() => {
     if (!runId) return undefined;
     let cancelled = false;
+    let misses = 0;
+    setRun(null);
+    setLost(false);
     const poll = async () => {
       try {
         const next = await getRun(runId);
         if (cancelled) return;
+        misses = 0;
         setRun(next);
         if (next.status === 'running') setTimeout(poll, 1000);
-        else onFinished?.(next);
+        else if (next.status === 'completed') onFinished?.(next);
       } catch {
-        if (!cancelled) setTimeout(poll, 2000);
+        if (cancelled) return;
+        misses += 1;
+        // A restart can leave a claim in_progress with a run_id the registry
+        // minted but never persisted; /runs/{id} then 404s for ever. Give up
+        // after ~30s rather than narrating work nobody is doing.
+        if (misses >= MAX_POLL_MISSES) { setLost(true); onFinished?.(null); return; }
+        setTimeout(poll, 2000);
       }
     };
     poll();
     return () => { cancelled = true; };
   }, [runId, onFinished]);
+
+  if (lost) {
+    return (
+      <div className="run-panel">
+        <div className="run-head"><span className="run-title">No Run record found</span></div>
+        <p className="run-failure">
+          No Run record was found for this request. Another Run may already be in progress for this claim;
+          the queue will update when it finishes.
+        </p>
+      </div>
+    );
+  }
 
   const active = stepIndex(run?.current_step);
   return (
@@ -59,6 +89,9 @@ export default function RunPanel({ runId, onFinished }) {
         })}
       </ol>
       {run?.failure && <div className="run-failure">{run.failure}</div>}
+      {run?.status === 'failed' && onRetry && (
+        <button type="button" className="ask-submit run-retry" onClick={onRetry}>Try again</button>
+      )}
       {run?.trace_id && <div className="run-trace">MLflow trace {run.trace_id}</div>}
     </div>
   );

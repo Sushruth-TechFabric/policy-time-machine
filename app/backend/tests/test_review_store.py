@@ -49,6 +49,9 @@ def test_failed_run_requeues_and_promotes_nothing(store):
     store.fail_run("run-1", "C-1", "genie timed out")
     detail = store.get_claim("C-1")
     assert detail["run_state"] == "queued" and detail["brief"] is None
+    # active_run_id is cleared, so the failure is only visible via last_run.
+    assert detail["active_run"] is None
+    assert detail["last_run"]["status"] == "failed" and detail["last_run"]["failure"] == "genie timed out"
     assert store.get_run("run-1")["status"] == "failed"
     assert [c["claim_id"] for c in store.pending_claims(10)] == ["C-1"]
 

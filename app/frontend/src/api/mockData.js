@@ -691,18 +691,26 @@ export function mockGetReviewQueue() {
   return { queue: REVIEW_QUEUE.map((r) => ({ ...r, has_brief: Boolean(REVIEW_BRIEFS[r.claim_id]), disposition: REVIEW_DISPOSITIONS[r.claim_id] ?? null })) };
 }
 
+// The most recent Run for a claim, whatever its outcome — a failed Run
+// clears active_run_id, so this is what carries the failure to the view.
+function lastRun(claimId) {
+  const runs = Object.values(RUNS).filter((r) => r.claim_id === claimId);
+  return runs.length ? runs.reduce((a, b) => (a.started_at > b.started_at ? a : b)) : null;
+}
+
 export function mockGetReviewClaim(claimId) {
   const row = REVIEW_QUEUE.find((r) => r.claim_id === claimId);
   if (!row) throw new Error('Request failed (404)');
   return { ...row, brief: REVIEW_BRIEFS[claimId] ?? null, brief_anchor_date: '2026-09-17', brief_built_at: '2026-09-17T08:00:00Z',
-           disposition: REVIEW_DISPOSITIONS[claimId] ?? null, active_run: row.active_run_id ? RUNS[row.active_run_id] : null };
+           disposition: REVIEW_DISPOSITIONS[claimId] ?? null, active_run: row.active_run_id ? RUNS[row.active_run_id] : null,
+           last_run: lastRun(claimId) };
 }
 
 export function mockPrepareBrief(claimId) {
   const row = REVIEW_QUEUE.find((r) => r.claim_id === claimId);
   if (!row) throw new Error('Request failed (404)');
   const runId = `run-${claimId}`;
-  RUNS[runId] = { run_id: runId, claim_id: claimId, status: 'running', current_step: null, step_count: 0, branch_name: `projects/policy-time-machine/branches/${runId}`, trace_id: null, failure: null };
+  RUNS[runId] = { run_id: runId, claim_id: claimId, status: 'running', current_step: null, step_count: 0, branch_name: `projects/policy-time-machine/branches/${runId}`, trace_id: null, failure: null, started_at: new Date().toISOString() };
   row.run_state = 'in_progress'; row.active_run_id = runId;
   let i = 0;
   const tick = () => {

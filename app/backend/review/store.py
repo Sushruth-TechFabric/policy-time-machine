@@ -111,7 +111,15 @@ class InMemoryReviewStore:
             return {**claim, "brief": brief["body"] if brief else None,
                     "brief_anchor_date": brief["anchor_date"] if brief else None,
                     "brief_built_at": brief["built_at"] if brief else None,
-                    "disposition": self.dispositions.get(claim_id), "active_run": dict(run) if run else None}
+                    "disposition": self.dispositions.get(claim_id), "active_run": dict(run) if run else None,
+                    "last_run": self._last_run(claim_id)}
+
+    def _last_run(self, claim_id: str) -> dict | None:
+        """The most recent Run for this claim, whatever its outcome. A failed
+        Run clears `active_run_id`, so this is the only way the view can say
+        the last Run failed."""
+        runs = [r for r in self.runs.values() if r["claim_id"] == claim_id]
+        return dict(max(runs, key=lambda r: r["started_at"])) if runs else None
 
     def record_disposition(self, claim_id, outcome, note, recorded_by) -> dict:
         if outcome not in DISPOSITION_OUTCOMES:
@@ -287,6 +295,10 @@ class ReviewStore:
             return None
         row = self._with_disposition(rows[0])
         row["active_run"] = self.get_run(row["active_run_id"]) if row.get("active_run_id") else None
+        # A failed Run clears active_run_id, so the most recent Run is the
+        # only way the view can say the last Run failed.
+        last = self._rows("SELECT * FROM review.run WHERE claim_id = %s ORDER BY started_at DESC LIMIT 1", (claim_id,))
+        row["last_run"] = last[0] if last else None
         return row
 
     def record_disposition(self, claim_id, outcome, note, recorded_by) -> dict:
