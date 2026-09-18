@@ -239,6 +239,18 @@
   font-size: 12px;
 }
 
+.prepare-brief-btn {
+  margin-top: 8px;
+  background: var(--agent-soft);
+  color: var(--agent-strong);
+  border: 1px solid var(--agent-rail);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 /* ---- Find similar affordance ---- */
 
 .find-similar-btn {

@@ -41,7 +41,7 @@ function computeChipContext(activeNode, displayedTimelineId) {
  * breadcrumb's cached-view restore (ADR-0011 — clicking a node never
  * re-fetches and never sends a new thread message).
  */
-export function useInvestigation(storageKey) {
+export function useInvestigation(storageKey, seedQuestion) {
   const [trail, setTrail] = useState(() => loadStoredInvestigation(storageKey)?.trail ?? []);
   const [activeIndex, setActiveIndex] = useState(() => {
     const stored = loadStoredInvestigation(storageKey);
@@ -167,6 +167,16 @@ export function useInvestigation(storageKey) {
     },
     [ensureInvestigation, fetchTimelineSnapshot, genieLoading, displayedTimelineId],
   );
+
+  // A tab opened from a Brief section starts with that section's question.
+  // Once only, and only when there is nothing in the trail to preserve.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seedQuestion && !seededRef.current && trail.length === 0 && !genieLoading) {
+      seededRef.current = true;
+      submitQuestion(seedQuestion);
+    }
+  }, [seedQuestion, trail.length, genieLoading, submitQuestion]);
 
   // Policy row clicked in a result table: that policy's timeline loads on
   // the left. Never sends a message and never grows the trail

@@ -16,7 +16,7 @@ import { useInvestigation } from '../hooks/useInvestigation.js';
  * inactive ones, so every tab keeps its full state across switches — and
  * the trail itself is persisted, so it survives a page refresh too.
  */
-export default function InvestigationWorkspace({ storageKey, onLabel, onNewInvestigation }) {
+export default function InvestigationWorkspace({ storageKey, onLabel, onNewInvestigation, onPrepareBrief, seedQuestion }) {
   const {
     trail,
     activeIndex,
@@ -31,7 +31,7 @@ export default function InvestigationWorkspace({ storageKey, onLabel, onNewInves
     openPolicyTimeline,
     findSimilar,
     goToNode,
-  } = useInvestigation(storageKey);
+  } = useInvestigation(storageKey, seedQuestion);
 
   // The tab names itself after the opening question.
   const firstLabel = trail.length > 0 ? trail[0].label : null;
@@ -83,6 +83,7 @@ export default function InvestigationWorkspace({ storageKey, onLabel, onNewInves
             data={displayedTimeline}
             onFindSimilar={findSimilar}
             findSimilarBusy={genieLoading}
+            onPrepareBrief={onPrepareBrief}
           />
         </div>
         <div className="result-region">
