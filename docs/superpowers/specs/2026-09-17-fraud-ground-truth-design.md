@@ -38,7 +38,7 @@ Decisions already taken for the programme, recorded here so later specs inherit 
 
 1. **Charter revision** — ADR-0020, the rewritten boundary paragraph, two named surfaces in `CONTEXT.md`.
 2. **Scoped vocabulary rule** — the banned list split in two, a `surface` parameter defaulting to today's behaviour, a drift test over all three copies.
-3. **Fraud Truth** — `ptm_eval.claim_fraud_truth`, drawn conditional on existing behaviour from a new RNG stream.
+3. **Fraud Truth** — `ptm_eval.claim_fraud_truth`, allocated conditional on existing behaviour from a new RNG stream.
 4. **Claim notes** — a new source table `claim_note`, templated from seeded phrase pools with declared, overlapping tells.
 5. **`ptm_gold.claim_context`** — one new gold table carrying behaviour facts and the note, not attached to the Genie space.
 6. **Validation** — new generator checks run by the existing `validate_task`, a truth-isolation repo test, pipeline expectations.
@@ -102,34 +102,37 @@ Consequence: behaviour facts (tenure, prior claims, reinstatement) derive from e
 
 ### 5.2 Fraud Truth
 
-Table `ptm_eval.claim_fraud_truth` (`claim_id` string PK, `is_fraud` boolean). Seed-owned; drawn from a new `fraud` RNG stream after all existing generation is complete. One row per claim.
+Table `ptm_eval.claim_fraud_truth` (`claim_id` string PK, `is_fraud` boolean, `population` string: `S`, `C` or `background`). Seed-owned; drawn from a new `truth` RNG stream after all existing generation is complete. One row per claim. `population` is carried because the planted-scenario membership of a *claim* (as opposed to a policy) is not recoverable from the emitted tables, and the validator and the evaluation bench both need it.
 
-Each claim's fraud probability is a declared base rate for its population, tilted by declared odds ratios on its behaviour flags, then renormalised so the population's expected rate equals the base rate.
+Population of a claim: `C` if its policy is assigned to C1–C5; otherwise `S` if the claim is one a noteworthy scenario planted; otherwise `background` (this includes the handful of ordinary claims that land on S policies).
 
-| Population | Claims (approx.) | Base rate | Expected fraud claims |
+Measured on the generated book (seeds 42 and 7, 2026-09-17): 1,285 claims — 150 S (S5 plants no claim), 135 C, 1,000 background. Behaviour flags have no variance inside S (one flagged claim in 150), so the S draw is flat and **inside the rule-matched group the claim note is the only separating evidence.**
+
+| Population | Claims | Fraud rate | Fraud claims |
 |---|---|---|---|
-| S1–S6 planted claims | 185 | 65% | ~120 |
-| C1–C5 claims | 170 | 0% | 0 |
-| Background claims | ~5,150 | 1% | ~50 |
+| S planted claims | 150 | 40%, flat | 60 |
+| C claims | 135 | 0% | 0 |
+| Background claims | 1,000 | 3%, tilted by behaviour | 30 |
 
-Overall prevalence is about 3%. About 30% of fraud matches no pattern rule, so rules alone miss it. About 35% of rule-matched S claims are benign, so rules alone over-refer. Inside the rule-matched group the rules cannot separate fraud from benign at all.
+Overall prevalence is about 7%. A third of fraud matches no pattern rule, so rules alone miss it. Sixty percent of rule-matched S claims are benign, so rules alone over-refer, and the rules cannot separate the two at all.
 
-Behaviour flags and their declared odds ratios (modest and heterogeneous, as ADR-0014 requires of every planted effect):
+Behaviour flags and their declared odds ratios, applied to the background population only (modest and heterogeneous, as ADR-0014 requires of every planted effect):
 
-| Flag | Definition | Declared odds ratio |
-|---|---|---|
-| Early tenure | Loss Date within 90 days of policy inception | 3.0 |
-| Repeat claimant | two or more prior claims on the policy | 2.0 |
-| Recent reinstatement | policy reinstated within 30 days before the Loss Date | 2.5 |
-| New vehicle | a vehicle added within 30 days before the Loss Date | 1.5 |
+| Flag | Definition | Background claims flagged | Declared odds ratio |
+|---|---|---|---|
+| Early tenure | Loss Date within 90 days of policy inception (the first `effective_from` of the policy) | ~82 | 3.0 |
+| Recent reinstatement | the policy entered `reinstated` status within 30 days before the Loss Date, inclusive | ~16 | 2.5 |
+| New vehicle | a vehicle added after inception and within 30 days before the Loss Date, inclusive | ~43 | 1.5 |
 
-Final values are fixed in `docs/specs/01-data-model-and-synthetic-data.md` §9, which is the source of truth; the figures above are the design's starting point.
+"Two or more prior claims" was considered and dropped: it is true of four claims in the whole book.
 
-**Verification before the numbers are fixed (first task of the plan):** measure the variance of each flag inside S1–S6. Those policies are scripted, so a flag may be near-constant there. For any flag whose minority class is below 10% of S claims, the S-population tilt for that flag is dropped. If every flag is dropped, S fraud is drawn at the flat 65% and the narrative is the only separating signal inside the rule-matched group. The background population keeps all four tilts regardless.
+**Allocation is exact, not sampled.** Within a population the fraud count is `round(rate × claims)`. For the background, claims are grouped into strata by flag pattern; a logistic intercept is solved so the expected total equals the fraud count; each stratum's share is fixed by largest-remainder rounding; the RNG stream only chooses *which* claims inside a stratum. Realised rates are therefore exact on every seed, and realised odds ratios sit within integer rounding of the declared values — the same calibrated-not-sampled approach the generator uses for severity bands.
+
+Final values live in `docs/specs/01-data-model-and-synthetic-data.md` §9, which is the source of truth.
 
 ### 5.3 Claim notes
 
-New source table `claim_note` (`claim_id` string PK/FK, `note_text` string). One first-notice note per claim, assembled from seeded phrase pools on a new `fraud_notes` RNG stream, conditional on `is_fraud`.
+New source table `claim_note` (`claim_id` string PK/FK, `note_text` string). One first-notice note per claim, assembled from seeded phrase pools on a new `claim-notes` RNG stream, conditional on `is_fraud`.
 
 A note has five slots: what happened (pool chosen by Coverage Line), where, police report, witnesses, damage description. Each slot has an ordinary variant and a tell variant.
 
@@ -140,7 +143,9 @@ A note has five slots: what happened (pool chosen by Coverage Line), where, poli
 | No witnesses, late night | 45% | 15% |
 | Damage description inconsistent with the claimed Coverage Line | 25% | 2% |
 
-Tells are drawn independently. No single tell decides a claim, and about one fraud note in six carries none.
+Tells are allocated independently of one another, and by exact count: within each class, `round(rate × applicable claims)` notes carry the tell, and the RNG stream chooses which. The police-report tell applies only to `COLL` and `COMP` claims. No single tell decides a claim, and about one fraud note in eight carries none.
+
+A tell is recoverable from the text: `tells_in(note_text, coverage_line)` returns the tells present by phrase membership. The validator and the reference scorer use it, so both work from exactly what an agent can see.
 
 Rules for the pools:
 
@@ -155,15 +160,15 @@ Rules for the pools:
 |---|---|---|
 | `claim_id` | string PK | |
 | `policy_age_at_loss_days` | int | Loss Date minus policy inception |
-| `prior_claims_count` | int | claims on the policy with an earlier Report Date |
+| `prior_claims_count` | int | claims on the policy with an earlier Report Date (context for the investigator; not a planted signal) |
 | `days_since_prior_claim` | int, nullable | Loss Date minus the previous claim's Loss Date |
 | `reinstated_within_30d_before_loss` | boolean | |
-| `vehicle_added_within_30d_before_loss` | boolean | |
+| `vehicle_added_within_30d_before_loss` | boolean | a vehicle added after inception, 0–30 days before the Loss Date |
 | `note_text` | string | from `claim_note` |
 
 A separate table rather than new columns on `claim_event`: Genie reads `claim_event`, and new columns there could change the SQL it writes and destabilise the contracts. `claim_context` is **not** attached to the Genie space in this sub-project. Attaching it is sub-project D's decision and comes with a full contract re-run.
 
-Built by a new `build_claim_context` in `pipeline/transformations.py`; schema declared in the shared schema registry so the pandas and Spark sides cannot disagree; column comments in `uc_comments.py`.
+Built by a new `build_claim_context` in `pipeline/transformations.py`, which reads two bronze sources the pipeline did not read before (`vehicle`, `claim_note`); schema declared in the shared schema registry so the pandas and Spark sides cannot disagree; column comments in `uc_comments.py`.
 
 Expectations (added to `expectations.py` and spec 02). Existing rules extended to the new table: E18 (vocabulary, investigation surface) and E19 (no policy-id lookalike) over `note_text`. New rules: **E21** one row in `claim_context` per row in `claim_event`, and no others; **E22** `note_text` non-null and non-empty; **E23** `prior_claims_count >= 0` and `policy_age_at_loss_days >= 0`.
 
@@ -180,18 +185,20 @@ New checks in `generator/validate.py`, run by the existing `validate_task`, so a
 | Check | Asserts |
 |---|---|
 | Byte identity | For the test seed and anchor, the hash of every pre-existing source table equals the hash recorded before this change. |
-| Declared rates | Realised fraud share in S and in background within tolerance of the declared base rates; exactly zero in C. |
-| Tilts | Realised odds ratio for each retained flag within tolerance of its declared value, per population where it applies. |
-| Tells | Realised rate of each tell, per class, within tolerance. |
-| Separability band | A fixed reference scorer — the sum of the declared log-odds of the tells present and the flags set — reaches an AUC inside a declared band, provisionally 0.80–0.92. Separable, not trivial. |
+| Declared rates | Realised fraud count in S and in background equals `round(rate × claims)` exactly; zero in C. |
+| Tilts | The validator recomputes the background allocation from the declared parameters and the emitted tables, independently of the generator, and the realised fraud count in every stratum equals it; for each flag the fraud rate among flagged claims exceeds the rate among unflagged. |
+| Tells | Realised count of each tell, per class, equals `round(rate × applicable claims)`, measured from the note text by `tells_in`. |
+| Separability band | A fixed reference scorer — the sum of the declared log-odds of the tells present and the flags set — reaches an AUC inside a declared band, 0.78–0.92 over the whole book (simulated mean 0.85). Separable, not trivial. |
 | Rules-only baseline | Treating "any pattern match on the claim's policy" as the prediction, recall stays below a declared ceiling (off-pattern fraud guarantees misses) and precision below a declared ceiling (benign S and C5 guarantee over-referral). |
 | Leakage | Every phrase occurs in both classes; no note contains a banned term or a policy-id lookalike; `is_fraud` is independent of `claim_id` order (rank correlation within tolerance of zero). |
 
-Tolerances are declared beside the parameters in spec 01 §9, sized for the smallest population (S, about 185 claims) so they hold on every seed.
+Because rates, strata and tells are allocated by exact count, these checks are equalities, not tolerances; only the separability band and the rank-correlation leakage check are ranges.
 
 The reference scorer and the rules-only figures are emitted into the validation report. They are the two baselines sub-project B's bench must beat.
 
 ## 7. Testing
+
+The generator's own source-vocabulary test forbids accusatory terms in its top-level modules. All code that must name the label lives in two modules, `generator/truth.py` and `generator/validate_truth.py`; the test exempts exactly those two by name, citing ADR-0020. `generator/notes.py` (the phrase pools) stays under the test.
 
 - **Generator (pytest):** the new checks above on the test seed; a second seed and a second anchor to show the truth and the notes are seed-owned and anchor-independent; the byte-identity hash.
 - **Pipeline (pytest, pandas):** `build_claim_context` against hand-built fixtures — first claim on a policy (null `days_since_prior_claim`), reinstatement on day 30 and day 31, vehicle added on the Loss Date.
