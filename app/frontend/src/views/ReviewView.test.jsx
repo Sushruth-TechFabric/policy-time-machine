@@ -69,6 +69,16 @@ describe('ReviewView (mock mode)', () => {
     expect(screen.getByRole('button', { name: 'Prepare a Brief' })).toBeInTheDocument();
   });
 
+  it('mirrors the timeline no-access answer in the Brief panel (ADR-0019)', async () => {
+    vi.mocked(client.getTimeline).mockImplementation(() => ({ no_access: true }));
+    render(<ReviewView selectedClaimId="C-10000001" onSelectClaim={() => {}} onOpenAsInvestigation={() => {}} />);
+    await waitFor(() => expect(screen.getByText(/don't have access to the policy data behind this Brief/i)).toBeInTheDocument());
+    expect(screen.getByText(/Unity Catalog governs the source/)).toBeInTheDocument();
+    // The Brief body and the Disposition are both withheld, quietly.
+    expect(screen.queryByText('The sequence')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Record disposition' })).not.toBeInTheDocument();
+  });
+
   it('"Open as investigation" hands the frequency question up', async () => {
     const open = vi.fn();
     render(<ReviewView selectedClaimId="C-10000001" onSelectClaim={() => {}} onOpenAsInvestigation={open} />);
