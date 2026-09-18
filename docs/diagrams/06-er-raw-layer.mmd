@@ -68,6 +68,10 @@ erDiagram
         date payment_date
         decimal amount "payments sum to settled_amount when settled"
     }
+    claim_note {
+        string claim_id PK "FK to claim; one note per claim"
+        string note_text
+    }
     scenario_assignment {
         string policy_id FK "noteworthy, control, similarity-group or DEMO"
         string scenario_id
@@ -88,4 +92,5 @@ erDiagram
     policy_history ||--o{ vehicle : "policy_id"
     policy_history ||--o{ claim : "policy_id"
     claim ||--o{ claim_payment : "claim_id"
+    claim ||--|| claim_note : "claim_id"
     policy_history ||--o| scenario_assignment : "policy_id"
