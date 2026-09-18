@@ -35,6 +35,7 @@ from ci.genie.genie_client import run_warehouse_query  # noqa: E402
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 RUNS = 3
+SECTION_ORDER = ["sequence", "relevant_changes", "frequency", "similar"]
 
 
 def _q(client, sql):
@@ -51,7 +52,7 @@ def latest_claim(client, policy_id: str) -> dict:
 def check(brief: dict, client, claim: dict) -> list[str]:
     failures = []
     s = brief["sections"]
-    if list(s) != ["sequence", "relevant_changes", "frequency", "similar"]:
+    if list(s) != SECTION_ORDER:
         failures.append(f"section order {list(s)}")
     pid, cid = claim["policy_id"], claim["claim_id"]
     expected_seq = _q(client, f"SELECT count(*) AS n FROM policy_timeline_event WHERE policy_id='{pid}' AND event_date <= DATE'{claim['loss_date']}' AND event_date >= date_sub(DATE'{claim['loss_date']}', 365)")[0]["n"]
@@ -74,7 +75,16 @@ def check(brief: dict, client, claim: dict) -> list[str]:
             failures.append(f"{name} sentence violates vocabulary: {section['sentence']!r}")
         if "summary" in section or "recommendation" in section:
             failures.append(f"{name} carries a forbidden field")
+    # A Brief whose every sentence was dropped is four tables and no prose:
+    # technically valid, useless to a reviewer, and invisible to every other
+    # check here.
+    if dropped_sentences(brief) == len(SECTION_ORDER):
+        failures.append("all four sentences were dropped (tighten prompts.SYSTEM)")
     return failures
+
+
+def dropped_sentences(brief: dict) -> int:
+    return sum(1 for section in brief["sections"].values() if section.get("sentence_dropped"))
 
 
 class FailingGenie:
@@ -104,10 +114,13 @@ def main() -> int:
         started = time.monotonic()
         outcome = run_brief(contract_claim_id, deps)
         failures = [outcome.failure] if outcome.status != "completed" else check(outcome.brief, client, claim)
+        dropped = dropped_sentences(outcome.brief) if outcome.brief else None
         passed = not failures
         passes += passed
-        print(f"run {i}/{RUNS}: {'PASS' if passed else 'FAIL'} ({time.monotonic() - started:.0f}s) {failures or ''}", flush=True)
+        print(f"run {i}/{RUNS}: {'PASS' if passed else 'FAIL'} ({time.monotonic() - started:.0f}s) "
+              f"dropped_sentences={dropped} {failures or ''}", flush=True)
         records.append({"run": i, "passed": passed, "failures": failures, "run_id": outcome.run_id, "trace_id": outcome.trace_id,
+                        "dropped_sentences": dropped,
                         "question": (outcome.brief or {}).get("sections", {}).get("frequency", {}).get("question")})
         # Reset so the next run rebuilds rather than being skipped as brief_ready.
         conn.execute("DELETE FROM review.brief WHERE claim_id = %s", (contract_claim_id,))
