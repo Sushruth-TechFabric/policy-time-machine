@@ -9,6 +9,7 @@ Genie failure take the rest of the response down with it (ADR-0007).
 """
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -23,9 +24,25 @@ from .genie import ask_genie
 from .investigations import InvestigationNotFoundError, store
 from .policy_ids import detect_policy_ids, resolve_timeline_policy_id
 from .queries import get_patterns, get_similar, get_timeline
+from .review.api import router as review_router
+from .review.context import get_review_store
 from .warehouse import WarehouseError, WarehousePermissionError
 
-app = FastAPI(title="Policy Time Machine")
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """Runs the idempotent migration when Lakebase is configured; a
+    failure here is logged, not fatal — the investigation surface must
+    keep working without the review record."""
+    try:
+        get_review_store()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[startup] review store unavailable: {exc}", flush=True)
+    yield
+
+
+app = FastAPI(title="Policy Time Machine", lifespan=_lifespan)
+app.include_router(review_router)
 
 APP_ROOT = Path(__file__).resolve().parent.parent  # .../app
 STATIC_DIR = APP_ROOT / "frontend" / "dist"
