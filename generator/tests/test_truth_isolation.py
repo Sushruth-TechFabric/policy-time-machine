@@ -1,14 +1,14 @@
 """Spec section 5.5: no product surface and no agent may be able to name the truth.
 
-The whole of the application (app/) and the pipeline (pipeline/) and the documents
-that define the Genie space must never mention the truth table, its schema or its
-column."""
+The whole of the application (app/), the pipeline (pipeline/) and the Genie space
+definition (genie/) — plus the documents that define the Genie space — must never
+mention the truth table, its schema or its column."""
 
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 FORBIDDEN = ("claim_fraud_truth", "ptm_eval", "is_fraud")
-GUARDED_DIRS = ("app", "pipeline")
+GUARDED_DIRS = ("app", "pipeline", "genie")
 GUARDED_FILES = ("docs/genie-curation.md", "docs/specs/03-genie-knowledge.md")
 EXCLUDED_DIR_NAMES = {"node_modules", ".venv", "dist", "build", "__pycache__", ".pytest_cache"}
 
@@ -77,6 +77,8 @@ def test_the_guard_actually_scans_the_product():
         Path("app/frontend/package.json"),
         Path("pipeline/pytest.ini"),
         Path("pipeline/transformations.py"),
+        Path("genie/build_space.py"),
+        Path("genie/instructions.md"),
     }
     for expected in expected_files:
         assert expected in scanned_names, f"Expected file not scanned: {expected}"

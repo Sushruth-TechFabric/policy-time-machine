@@ -6,8 +6,10 @@ E20 is a schema review rather than a row property; it lives in
 
 from __future__ import annotations
 
+import ast
 import datetime as _dt
 import re
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -223,6 +225,29 @@ def test_the_genie_space_is_exactly_six_tables(curated):
     }
     # claim_context is curated and published, but never attached to the space (ADR-0020).
     assert set(curated) - set(T.GENIE_SPACE_TABLES) == {"claim_context"}
+
+
+def test_genie_space_tables_match_the_space_definition():
+    """genie/build_space.py declares its own ``TABLES`` tuple as the single
+    authored source for the Genie space content; that must not drift from
+    ``T.GENIE_SPACE_TABLES``, the pipeline's own copy. Parsed with ``ast``
+    rather than imported, because build_space.py imports the Databricks SDK."""
+    path = Path(__file__).resolve().parents[2] / "genie" / "build_space.py"
+    tree = ast.parse(path.read_text())
+    literal = None
+    for node in tree.body:
+        targets = []
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, ast.AnnAssign) and node.target is not None:
+            targets = [node.target]
+        if any(getattr(t, "id", None) == "TABLES" for t in targets):
+            literal = node.value
+            break
+    assert literal is not None, "TABLES assignment not found in genie/build_space.py"
+    value = ast.literal_eval(literal)
+    names = {str(v).rsplit(".", 1)[-1] for v in value}
+    assert names == set(T.GENIE_SPACE_TABLES)
 
 
 def test_no_scd2_column_leaks_into_the_genie_space(curated):

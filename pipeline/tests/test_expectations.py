@@ -228,4 +228,5 @@ def test_claim_context_carries_the_vocabulary_and_identifier_guards():
     assert "E19_note_text_does_not_contain_a_policy_id" in rules
     assert "E22_note_text_is_present" in rules
     assert "E23_counts_and_tenure_are_never_negative" in rules
+    assert "policy_age_at_loss_days IS NOT NULL" in rules["E23_counts_and_tenure_are_never_negative"]
     assert "E21_every_claim_has_exactly_one_context_row" in CATALOGUE["qa_claim_context_coverage"]

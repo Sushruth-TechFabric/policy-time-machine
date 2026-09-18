@@ -173,7 +173,7 @@ erDiagram
     policy_history ||--o{ vehicle : "policy_id"
     policy_history ||--o{ claim : "policy_id"
     claim ||--o{ claim_payment : "claim_id"
-    claim ||--o| claim_note : "claim_id"
+    claim ||--|| claim_note : "claim_id"
     policy_history ||--o| scenario_assignment : "policy_id"
 ```
 
@@ -375,13 +375,13 @@ Only early tenure produces a rate difference large enough to measure at this boo
 | No witnesses, late night | 45% | 15% |
 | Damage description inconsistent with the claimed Coverage Line | 25% | 2% |
 
-Tells are allocated independently of one another and by exact count. No phrase is exclusive to fraud notes — every phrase in a fraud note also occurs in a benign one, so a phrase lookup cannot identify fraud; only tell rates differ. No phrase contains a banned term, a policy-id lookalike, or a customer name. Notes use relative wording for time ("two days ago", "last night"), never an absolute date, so a changed anchor never changes a note (§10 obligation 3). About one fraud note in eight carries no tell at all.
+Tells are allocated independently of one another and by exact count. No phrase is exclusive to fraud notes — every phrase in a fraud note also occurs in a benign one, so a phrase lookup cannot identify fraud; only tell rates differ. No phrase contains a banned term, a policy-id lookalike, or a customer name. No phrase contains a digit or a date; the only time wording is qualitative ("late at night", "after midnight", "the early hours"), so a note never moves with the anchor (§10 obligation 3). About one fraud note in eight carries no tell at all.
 
-**Validation**, run by the regeneration Workflow's `validate` task on every regeneration:
+**Validation.** Byte identity is asserted by the generator test suite (`generator/tests/test_byte_identity.py`) against golden hashes recorded before the change; every other check below runs in the regeneration Workflow's `validate` task on every regeneration:
 
 | Check | Asserts |
 |---|---|
-| Byte identity | Every pre-existing source table hashes the same, for the test seed and anchor, as it did before this change. |
+| Byte identity | Asserted by `generator/tests/test_byte_identity.py`: every pre-existing source table hashes the same, for the test seed and anchor, as the golden hash recorded before this change. |
 | Declared rates | Realised fraud count in S and in background equals `round(rate × claims)` exactly; zero in C. |
 | Tilts | The realised fraud count in every background stratum is within one claim of the declared logistic expectation; the fraud rate among flagged claims exceeds the rate among unflagged claims for every flag expecting at least three fraud claims. |
 | Tells | Realised count of each tell, per class, equals `round(rate × applicable claims)`, measured from the note text. |

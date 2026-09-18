@@ -14,7 +14,7 @@ correctness, not a data quality score.
 Coverage map:
 
 * **E1–E12, E17, E19** — row predicates on one table; attached to that table.
-* **E8, E13, E14, E16** — cross-table or cross-row; enforced by the ``qa_*``
+* **E8, E13, E14, E16, E21** — cross-table or cross-row; enforced by the ``qa_*``
   assertion tables in ``dlt_pipeline.py``, which materialise a join or a window
   and fail on any violating row. (E8 also has a same-table form here, checking
   that ``next_claim_severity`` uses the documented cuts.)
@@ -22,8 +22,9 @@ Coverage map:
 * **E20** — a property of the schema, not of a row; enforced by review against
   the specification. The review is written out in ``dlt_pipeline``'s docstring
   and executed as a column-name check in ``tests/test_profile.py``.
-* **E21–E23** — `claim_context`: coverage of `claim_event` (E21, a QA join),
-  note present (E22), non-negative counts (E23).
+* **E21–E23** — `claim_context`: coverage of `claim_event` (E21, a QA join,
+  also listed with the other cross-table checks above), note present (E22),
+  non-negative counts (E23).
 """
 
 from __future__ import annotations
@@ -181,7 +182,8 @@ def claim_context() -> dict[str, str]:
         "E22_note_text_is_present": "note_text IS NOT NULL AND length(trim(note_text)) > 0",
         # E23
         "E23_counts_and_tenure_are_never_negative":
-            "prior_claims_count >= 0 AND policy_age_at_loss_days >= 0 "
+            "policy_age_at_loss_days IS NOT NULL AND prior_claims_count IS NOT NULL "
+            "AND prior_claims_count >= 0 AND policy_age_at_loss_days >= 0 "
             "AND (days_since_prior_claim IS NULL OR days_since_prior_claim >= 0)",
         "prior_claim_gap_is_null_exactly_when_there_is_no_prior_claim":
             "(prior_claims_count = 0) = (days_since_prior_claim IS NULL)",

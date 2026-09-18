@@ -57,7 +57,12 @@ def test_the_truth_is_owned_by_the_seed_not_the_anchor(frames):
     assert frames[truth.TABLE].equals(earlier[truth.TABLE])
     assert frames["claim_note"].equals(earlier["claim_note"])
     other = build(SEED + 1, dt.datetime.now(dt.timezone.utc).date())
-    assert not frames[truth.TABLE]["claim_id"].equals(other[truth.TABLE]["claim_id"])
+    fraud_ids = set(frames[truth.TABLE].loc[frames[truth.TABLE]["is_fraud"], "claim_id"])
+    other_fraud_ids = set(other[truth.TABLE].loc[other[truth.TABLE]["is_fraud"], "claim_id"])
+    assert fraud_ids != other_fraud_ids
+    rebuild = build(SEED, dt.datetime.now(dt.timezone.utc).date())
+    assert frames[truth.TABLE].equals(rebuild[truth.TABLE])
+    assert frames["claim_note"].equals(rebuild["claim_note"])
 
 
 def test_write_keeps_the_truth_out_of_the_source_directory(frames, tmp_path):

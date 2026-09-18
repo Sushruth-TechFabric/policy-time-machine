@@ -1,11 +1,13 @@
 """The runtime vocabulary check mirrors pipeline expectation E18 for text
 the pipeline cannot see (model-generated sentences)."""
 
+import ast
 import importlib.util
 from pathlib import Path
 
 import pytest
 
+from backend.review import vocabulary
 from backend.review.vocabulary import BANNED_VOCABULARY, is_clean, violations
 
 
@@ -40,9 +42,14 @@ def test_banned_list_matches_pipeline_when_available():
     except (ImportError, ModuleNotFoundError) as exc:
         pytest.skip(f"pipeline module not importable here: {exc}")
     assert tuple(BANNED_VOCABULARY) == tuple(module.BANNED_VOCABULARY)
-
-
-import ast
+    assert tuple(vocabulary.ACCUSATORY_TERMS) == tuple(module.ACCUSATORY_TERMS)
+    assert tuple(vocabulary.ALWAYS_BANNED) == tuple(module.ALWAYS_BANNED)
+    assert [p.pattern for p in vocabulary._PERSON_AS_SUBJECT] == [
+        p.pattern for p in module._PERSON_AS_SUBJECT
+    ]
+    assert [p.flags for p in vocabulary._PERSON_AS_SUBJECT] == [
+        p.flags for p in module._PERSON_AS_SUBJECT
+    ]
 
 
 def test_detector_surface_may_name_fraud_but_not_a_person():

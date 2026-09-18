@@ -423,7 +423,7 @@ def policy_similarity():
 
 
 # ---------------------------------------------------------------------------
-# Cross-table assertion tables — E8, E13, E14, E16
+# Cross-table assertion tables — E8, E13, E14, E16, E21
 #
 # A DLT expectation is a row predicate over one dataset, so invariants that span
 # tables are enforced by materialising the join or the window and failing on any

@@ -44,12 +44,21 @@ def test_tell_counts_are_exact_per_class():
         assert sum(tell in found[c] for c in outside) == exact_count(rate_out, len(outside)), tell
 
 
-def test_police_tell_is_never_reported_off_the_police_lines():
+def test_off_police_lines_carry_the_no_report_phrases_class_blind():
+    """`tells_in` gates the tell on the coverage line, so it can never report
+    ``no_police_report`` off the police lines regardless of the note text —
+    that alone would make the check unfalsifiable. What actually keeps the
+    phrase from leaking the label off those lines is that the no-report
+    phrases are allocated to a fixed, class-blind share of off-police claims
+    (`NEUTRAL_NO_REPORT_RATE`), independent of `labelled`. Pin both facts."""
     claim, _, out = built()
     line = dict(zip(claim["claim_id"], claim["coverage_line"]))
-    for c, t in zip(out["claim_id"], out["note_text"]):
-        if line[c] not in notes.POLICE_LINES:
-            assert "no_police_report" not in notes.tells_in(t, line[c])
+    text = dict(zip(out["claim_id"], out["note_text"]))
+    off_police = [c for c in claim["claim_id"] if line[c] not in notes.POLICE_LINES]
+    carries_no_report = [c for c in off_police if any(p in text[c] for p in notes.POLICE_NONE)]
+    assert len(carries_no_report) == exact_count(notes.NEUTRAL_NO_REPORT_RATE, len(off_police))
+    for c in off_police:
+        assert "no_police_report" not in notes.tells_in(text[c], line[c])
 
 
 def test_no_phrase_is_a_substring_of_another():

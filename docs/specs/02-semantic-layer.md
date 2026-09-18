@@ -305,7 +305,7 @@ Every invariant is enforced at write time as a pipeline expectation (ADR-0013). 
 | E20 | No column stores an event-to-now delta | all | 0006 |
 | E21 | One row in `claim_context` per row in `claim_event`, and no others | `claim_context` | 0021 |
 | E22 | `note_text` non-null and non-empty | `claim_context` | 0021 |
-| E23 | `prior_claims_count >= 0` and `policy_age_at_loss_days >= 0` | `claim_context` | 0021 |
+| E23 | `prior_claims_count` and `policy_age_at_loss_days` are both non-null and `>= 0` | `claim_context` | 0021 |
 
 E18 is the product's no-fraud-labelling boundary enforced as a data-quality constraint. E20 is enforced by review against this specification, since it is a property of the schema rather than of a row. E21 is a QA join between `claim_event` and `claim_context` on `claim_id`; a row missing either side fails it. `claim_context` is described in §10.
 
