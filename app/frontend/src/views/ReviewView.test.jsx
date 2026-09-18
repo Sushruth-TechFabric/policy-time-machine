@@ -20,7 +20,7 @@ const { default: ReviewView } = await import('./ReviewView.jsx');
 describe('ReviewView (mock mode)', () => {
   it('lists the queue with the routing rule and opens a Brief with four sections', async () => {
     render(<ReviewView selectedClaimId={null} onSelectClaim={() => {}} onOpenAsInvestigation={() => {}} />);
-    await waitFor(() => expect(screen.getByText('High-severity claim reported in the last 90 days.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('High-severity claim reported in the last 90 days.')).toHaveLength(2));
     fireEvent.click(screen.getByRole('button', { name: /C-10000001/ }));
     await waitFor(() => expect(screen.getByText('The sequence')).toBeInTheDocument());
     expect(screen.getByText('The relevant changes')).toBeInTheDocument();
@@ -41,8 +41,11 @@ describe('ReviewView (mock mode)', () => {
     render(<ReviewView selectedClaimId="C-10000002" onSelectClaim={() => {}} onOpenAsInvestigation={() => {}} />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Prepare a Brief' })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Prepare a Brief' }));
-    await waitFor(() => expect(screen.getByText(/Working Branch created/)).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByText(/Working Branch deleted by the harness/)).toBeInTheDocument(), { timeout: 4000 });
+    // The branch suffix only renders once getRun has returned a run with a branch_name.
+    await waitFor(() => expect(screen.getByText('Working Branch created: run-C-10000002')).toBeInTheDocument());
+    // The Brief heading only renders once the mock Run reaches promoted/branch_deleted,
+    // onFinished fires, and the detail reloads with a Brief.
+    await waitFor(() => expect(screen.getByText('The sequence')).toBeInTheDocument(), { timeout: 5000 });
   });
 
   it('"Open as investigation" hands the frequency question up', async () => {

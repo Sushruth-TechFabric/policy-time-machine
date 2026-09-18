@@ -638,11 +638,10 @@ export function mockGetChips(context, activePolicyId) {
 export { NOT_FOUND_ID };
 
 // ---- Review record (Claim Review Brief agent) ------------------------------
+// Exactly one Routing Rule exists in this fixture: both queue rows are
+// routed by the same nightly rule, mirroring the real routing story (one
+// rule can route many claims).
 const RULE = 'High-severity claim reported in the last 90 days.';
-// The second queue row is catastrophic-band, not merely high-severity, so it
-// trips a distinct threshold rule — this also keeps the two rows' routing-
-// rule text from colliding when both are on screen at once.
-const CATASTROPHIC_RULE = 'Catastrophic claim reported in the last 90 days.';
 
 function section(title, rows, sql, extra = {}) {
   return { title, rows, sql, row_count: rows.length, sentence: null, sentence_dropped: false, ...extra };
@@ -681,7 +680,7 @@ const REVIEW_QUEUE = [
   { claim_id: 'C-10000001', policy_id: 'P-18492', coverage_line: 'COLL', loss_date: '2026-07-14', report_date: '2026-07-20', settled_amount: 24700, severity_band: 'severe',
     routed_by: 'rule', routing_rule: RULE, run_state: 'brief_ready', active_run_id: null, has_brief: true, disposition: null },
   { claim_id: 'C-10000002', policy_id: 'P-20114', coverage_line: 'COMP', loss_date: '2026-08-02', report_date: '2026-08-03', settled_amount: 61000, severity_band: 'catastrophic',
-    routed_by: 'rule', routing_rule: CATASTROPHIC_RULE, run_state: 'queued', active_run_id: null, has_brief: false, disposition: null },
+    routed_by: 'rule', routing_rule: RULE, run_state: 'queued', active_run_id: null, has_brief: false, disposition: null },
 ];
 const REVIEW_BRIEFS = { 'C-10000001': BRIEF_1 };
 const REVIEW_DISPOSITIONS = {};
