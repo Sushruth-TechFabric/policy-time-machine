@@ -11,10 +11,10 @@
 ## Global Constraints
 
 - Never use the words fraud/suspicious/red flag/anomaly in any user-facing copy (CONTEXT.md approved vocabulary).
-- Competition-simple: no new dependencies, no new services, smallest change that enforces for real.
+- Keep it simple: no new dependencies, no new services, smallest change that enforces for real.
 - `genie.py` never raises (module docstring contract) — every new path still collapses to a `GenieResult`.
 - The no-access copy is fixed and friendly; raw grant/SQL error text never reaches the UI.
-- Demo spec language stays relative ("before recording", never absolute dates) — spec 07 header rule.
+- Demo spec language stays relative ("before recording", never absolute dates) — the demonstration script's first rule.
 - Backend tests: `pytest app/backend/tests -v` from the repo root (conftest fixes `sys.path`). Frontend tests: `cd app/frontend && npm test`.
 
 ---
@@ -669,7 +669,7 @@ git commit -m "OBO access control: quiet no-access states for answers and timeli
 
 **Files:**
 - Modify: `databricks.yml` (apps resource)
-- Modify: `docs/specs/07-demo-specification.md`
+- Modify: the demonstration script (`docs/specs/13-meetup-demo-specification.md`, Chapter 4)
 
 **Interfaces:**
 - Consumes: everything above deployed together.
@@ -723,9 +723,9 @@ If step 3's verification query still returns rows, you hold access through anoth
 
 (Use the actual gold table name from the Genie space if `policy_summary` is not one of the six — any of the six works.)
 
-- [ ] **Step 5: Add the demo beat to spec 07**
+- [ ] **Step 5: Add the governance beat to the demonstration script**
 
-Insert between section 8 ("Beat seven — parallel investigations") and section 9 ("Close"), renumbering the later sections (9 Close → becomes the beat after this one; update the two section numbers below it):
+Insert before the close:
 
 ```markdown
 ## 9. Beat eight — governance (25s)
@@ -747,12 +747,12 @@ And append to the rehearsal rules:
 
 - [ ] **Step 6: Update the close beat's platform line**
 
-In spec 07's Close section, extend the Databricks-native sentence to name the new capability — replace "served by a Databricks App," with "served by a Databricks App that acts on behalf of the signed-in user so Unity Catalog governs every query,".
+In the script's close, extend the Databricks-native sentence to name the new capability — replace "served by a Databricks App," with "served by a Databricks App that acts on behalf of the signed-in user so Unity Catalog governs every query,".
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add databricks.yml docs/specs/07-demo-specification.md
+git add databricks.yml docs/specs/13-meetup-demo-specification.md
 git commit -m "OBO access control: user API scopes in the bundle; governance beat in the demo spec"
 ```
 

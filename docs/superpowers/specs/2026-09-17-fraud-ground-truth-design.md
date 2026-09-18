@@ -175,7 +175,7 @@ Expectations (added to `expectations.py` and spec 02). Existing rules extended t
 
 ### 5.5 Truth isolation
 
-`ptm_eval` is a new schema outside the medallion schemas (recorded in ADR-0021, which amends ADR-0016's list). The app service principal already reads `ptm_bronze.generation_manifest`, so bronze is reachable by the agent and cannot hold the truth. The app service principal and the Genie space receive no grant on `ptm_eval`. Only the identity that runs the evaluation bench (sub-project B) reads it.
+`ptm_eval` is a new schema outside the medallion schemas (recorded in ADR-0021, which amends ADR-0016's list). The app service principal is granted gold only, but the agent does not always run as it: the nightly `build_briefs` task runs the same harness as the Workflow's run-as identity, which reads bronze (`route_claims` takes the anchor from `ptm_bronze.generation_manifest`). Bronze is therefore reachable by an agent run and cannot hold the truth; a schema of its own also means no later bronze grant can expose it by accident. The app service principal and the Genie space receive no grant on `ptm_eval`. Only the identity that runs the evaluation bench (sub-project B) reads it.
 
 The Workflow's load step writes `claim_fraud_truth` to `ptm_eval`; the declarative pipeline never reads it.
 

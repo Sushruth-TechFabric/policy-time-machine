@@ -15,7 +15,7 @@ On-behalf-of-user (OBO) authorization end-to-end. Databricks Apps injects the vi
 
 Rejected alternatives:
 
-- **OBO + row filters** (viewer sees only their book): richer story, but needs a region→group mapping, extra UC setup, and a second identity to read well on camera. Out of competition scope.
+- **OBO + row filters** (viewer sees only their book): richer story, but needs a region→group mapping, extra UC setup, and a second identity to read well on camera. Out of scope for this iteration.
 - **App-level "view as" toggle**: trivial to demo, but cosmetic — not enforcement.
 
 ## Components
@@ -45,13 +45,13 @@ The deterministic endpoints (timeline, similar, patterns) get the same mapping: 
 
 ## Demo (single account)
 
-New beat (~25s) after beat seven of spec 07:
+A governance beat (~25s) in the demonstration script (`docs/specs/13-meetup-demo-specification.md`, Chapter 4):
 
 1. Precondition, done once before recording: `ptm_gold`'s owner is **not** the demo user (transfer ownership to the app's service principal); the demo user holds a direct `GRANT SELECT`. A UC owner cannot lock themselves out, so ownership transfer is what makes single-account revocation demoable.
 2. On camera: run `REVOKE SELECT` on the gold schema → refresh the app → the same screen, every panel in the no-access state → `GRANT SELECT` back → results return.
 3. Voiceover line: access is enforced by Unity Catalog, not by the app — same screen, no data, because governance says so.
 
-Spec 07 gains this beat; the query-contract suite still runs as the granted user before recording, per existing rehearsal rules.
+The demonstration script gains this beat; the query-contract suite still runs as the granted user before recording, per existing rehearsal rules.
 
 ## Testing
 

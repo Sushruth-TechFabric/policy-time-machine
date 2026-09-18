@@ -2,7 +2,7 @@
 
 Date: 2026-09-17
 Status: approved (grill-with-docs session, 2026-09-17)
-Target: a live 15–20 minute technical meetup demo showcasing lakehouse + Genie + Lakebase + Databricks Apps end to end. The contest six-minute script (`docs/specs/07-demo-specification.md`) is untouched.
+Target: a live 15–20 minute technical meetup demo showcasing lakehouse + Genie + Lakebase + Databricks Apps end to end.
 
 Vocabulary is `CONTEXT.md` (§ Review). Decisions with their alternatives are ADR-0017, ADR-0018, ADR-0019. This document states *what* gets built.
 
