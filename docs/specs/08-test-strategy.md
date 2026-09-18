@@ -97,4 +97,17 @@ In order:
 6. Demo rehearsed end to end against that exact dataset
 7. Recording made from that rehearsal
 
+---
+
+## Layer five — the Claim Review Brief agent
+
+The agent adds its own thin layer, on the same principle as the four above: each check names a distinct failure mode the product would otherwise return plausibly rather than break loudly on.
+
+- **Harness tests (pytest, fakes).** Fake tools, a fake model and a fake branch lifecycle drive the harness end to end — step order, budgets, sentence drop on a vocabulary failure, promotion only on a completed Run, branch deletion on both the completed and the failed path.
+- **Review view tests (vitest).** Queue and detail states, `RunPanel` narration, the Disposition form, the "Prepare a Brief" wiring, and the no-access mirroring between the timeline and the Brief panel.
+- **The branch smoke test (`ci/review/smoke_branch.py`).** Live: create a Working Branch and endpoint, connect, `SELECT 1`, delete both. Fails fast if the Lakebase project is missing or the identity lacks CAN MANAGE.
+- **The Brief contract (`ci/review/run_brief_contract.py`).** Live: build a Brief for the demo policy's latest claim three times and assert it against the same gold tables the harness reads from, plus one run with an injected failure to confirm nothing partial is ever promoted. 3/3, like the Genie contracts.
+
+Run alongside the fifteen Genie contracts, before any recording.
+
 Steps 1 and 6 must not be separated by another regeneration. The recording and the tested dataset have to be the same dataset.
